@@ -1,0 +1,24 @@
+{
+    "name": "infoline/school-data-system",
+    "description": "School Data Collection System",
+    "type": "project",
+    "require": {
+        "php": "^8.1",
+        "phpmailer/phpmailer": "^6.8",
+        "vlucas/phpdotenv": "^5.5",
+        "phpoffice/phpspreadsheet": "^1.29",
+        "cboden/ratchet": "^0.4.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    },
+    "authors": [
+        {
+            "name": "InfoLine Team",
+            "email": "info@infoline.edu.az"
+        }
+    ],
+    "minimum-stability": "stable"
+}
