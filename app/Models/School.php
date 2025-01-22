@@ -1,60 +1,75 @@
 <?php
 namespace App\Models;
 
-use App\Core\Model;
+use App\Core\Database;
+use PDO;
 
-class School extends Model {
-    protected $table = 'schools';
+class School {
+    private $db;
 
-    public function findByAdminId($adminId) {
-        return $this->db->fetchOne(
-            "SELECT * FROM {$this->table} WHERE admin_id = :admin_id",
-            [':admin_id' => $adminId]
-        );
+    public function __construct() {
+        $this->db = Database::getInstance()->getConnection();
     }
 
-    public function findAllWithAdmins() {
-        return $this->db->fetchAll(
-            "SELECT s.*, u.username as admin_username, u.is_active as admin_is_active
-            FROM {$this->table} s
-            LEFT JOIN users u ON s.admin_id = u.id
-            ORDER BY s.name"
-        );
-    }
+    public function getAll() {
+        $sql = "SELECT * FROM schools ORDER BY id DESC";
+        $stmt = $this->db->query($sql);
+        $schools = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    public function findActiveSchools() {
-        return $this->db->fetchAll(
-            "SELECT * FROM {$this->table} WHERE is_active = 1 ORDER BY name"
-        );
-    }
-
-    public function updateAdminId($schoolId, $adminId) {
-        return $this->db->execute(
-            "UPDATE {$this->table} SET admin_id = :admin_id WHERE id = :id",
-            [
-                ':admin_id' => $adminId,
-                ':id' => $schoolId
-            ]
-        );
-    }
-
-    public function removeAdmin($schoolId) {
-        return $this->db->execute(
-            "UPDATE {$this->table} SET admin_id = NULL WHERE id = :id",
-            [':id' => $schoolId]
-        );
-    }
-
-    public function isNameUnique($name, $excludeId = null) {
-        $sql = "SELECT COUNT(*) as count FROM {$this->table} WHERE name = :name";
-        $params = [':name' => $name];
-
-        if ($excludeId) {
-            $sql .= " AND id != :id";
-            $params[':id'] = $excludeId;
+        // Admin sayını ayrıca hesablayaq
+        foreach ($schools as &$school) {
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM users WHERE school_id = ? AND role = 'school_admin'");
+            $stmt->execute([$school['id']]);
+            $school['admin_count'] = $stmt->fetchColumn();
         }
 
-        $result = $this->db->fetchOne($sql, $params);
-        return $result['count'] == 0;
+        return $schools;
+    }
+
+    public function getById($id) {
+        $stmt = $this->db->prepare("SELECT * FROM schools WHERE id = ?");
+        $stmt->execute([$id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    public function create($data) {
+        $sql = "INSERT INTO schools (name) VALUES (?)";
+        $stmt = $this->db->prepare($sql);
+        
+        try {
+            $stmt->execute([$data['name']]);
+            return ['success' => true, 'id' => $this->db->lastInsertId()];
+        } catch (\PDOException $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    public function update($id, $data) {
+        $sql = "UPDATE schools SET name = ? WHERE id = ?";
+        $stmt = $this->db->prepare($sql);
+        
+        try {
+            $stmt->execute([$data['name'], $id]);
+            return ['success' => true];
+        } catch (\PDOException $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    public function delete($id) {
+        try {
+            // Əvvəlcə məktəbə aid adminləri yoxlayaq
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM users WHERE school_id = ? AND role = 'school_admin'");
+            $stmt->execute([$id]);
+            if ($stmt->fetchColumn() > 0) {
+                return ['success' => false, 'error' => 'Bu məktəbə aid adminlər var. Əvvəlcə onları silin.'];
+            }
+
+            $stmt = $this->db->prepare("DELETE FROM schools WHERE id = ?");
+            $stmt->execute([$id]);
+            return ['success' => true];
+        } catch (\PDOException $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 }

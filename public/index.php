@@ -24,11 +24,25 @@ $router->add('schools', ['controller' => 'schools', 'action' => 'index']);
 $router->add('settings', ['controller' => 'settings', 'action' => 'index']);
 $router->add('profile', ['controller' => 'profile', 'action' => 'index']);
 
+// Settings routes
+$router->add('settings', ['controller' => 'settings', 'action' => 'index']);
+$router->add('settings/addColumn', ['controller' => 'settings', 'action' => 'addColumn']);
+$router->add('settings/updateColumn', ['controller' => 'settings', 'action' => 'updateColumn']);
+$router->add('settings/deleteColumn', ['controller' => 'settings', 'action' => 'deleteColumn']);
+$router->add('settings/addSchool', ['controller' => 'settings', 'action' => 'addSchool']);
+$router->add('settings/updateSchool', ['controller' => 'settings', 'action' => 'updateSchool']);
+$router->add('settings/deleteSchool', ['controller' => 'settings', 'action' => 'deleteSchool']);
+$router->add('settings/addSchoolAdmin', ['controller' => 'settings', 'action' => 'addSchoolAdmin']);
+$router->add('settings/updateSchoolAdmin', ['controller' => 'settings', 'action' => 'updateSchoolAdmin']);
+$router->add('settings/deleteSchoolAdmin', ['controller' => 'settings', 'action' => 'deleteSchoolAdmin']);
+
 // API routes
 $router->add('api/columns', ['controller' => 'api', 'action' => 'columns']);
 $router->add('api/data', ['controller' => 'api', 'action' => 'data']);
-$router->add('api/school-admin', ['controller' => 'api', 'action' => 'createSchoolAdmin']);
+$router->add('api/data/update', ['controller' => 'dashboard', 'action' => 'updateData']);
+$router->add('api/data/bulk-update', ['controller' => 'api', 'action' => 'bulkUpdate']);
 $router->add('api/export', ['controller' => 'api', 'action' => 'export']);
+$router->add('api/school-admin', ['controller' => 'api', 'action' => 'createSchoolAdmin']);
 
 // Get the URL
 $url = trim($_SERVER['REQUEST_URI'], '/');
@@ -41,14 +55,16 @@ try {
     $router->dispatch($url);
 } catch (Exception $e) {
     error_log("Router error: " . $e->getMessage() . "\nTrace: " . $e->getTraceAsString());
-    http_response_code($e->getCode());
     
-    // Debug mode-da xəta məlumatlarını göstər
     if ($_ENV['APP_DEBUG'] === 'true') {
-        echo "<h1>Error " . $e->getCode() . "</h1>";
+        echo "<div class='alert alert-danger'>";
+        echo "<h4>Error " . $e->getCode() . "</h4>";
         echo "<p>" . $e->getMessage() . "</p>";
-        echo "<pre>" . $e->getTraceAsString() . "</pre>";
+        if ($e->getCode() === 404) {
+            echo "<p>Requested URL: " . $url . "</p>";
+        }
+        echo "</div>";
     } else {
-        echo $e->getMessage();
+        echo "<div class='alert alert-danger'>Səhifə tapılmadı</div>";
     }
 }

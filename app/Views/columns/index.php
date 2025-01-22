@@ -1,3 +1,5 @@
+<?php require_once __DIR__ . '/../layouts/header.php'; ?>
+
 <div class="container">
     <div class="row mb-4">
         <div class="col">
@@ -13,7 +15,7 @@
     <div class="card">
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-bordered">
+                <table class="table table-bordered" id="columnsTable">
                     <thead>
                         <tr>
                             <th>Sütun Adı</th>
@@ -92,3 +94,42 @@
         </div>
     </div>
 </div>
+
+<!-- Page specific DataTables initialization -->
+<script>
+$(document).ready(function() {
+    const dtConfig = {
+        language: {
+            "emptyTable": "Cədvəldə heç bir məlumat yoxdur",
+            "info": "_TOTAL_ Nəticədən _START_ - _END_ Arası Nəticələr",
+            "infoEmpty": "Nəticə Yoxdur",
+            "infoFiltered": "(_MAX_ Nəticə İçindən Tapılan)",
+            "lengthMenu": "Səhifədə _MENU_ Nəticə Göstər",
+            "loadingRecords": "Yüklənir...",
+            "processing": "Gözləyin...",
+            "search": "Axtarış:",
+            "zeroRecords": "Nəticə Tapılmadı.",
+            "paginate": {
+                "first": "İlk",
+                "last": "Axırıncı",
+                "next": "Sonraki",
+                "previous": "Öncəki"
+            }
+        }
+    };
+
+    // Initialize only columnsTable for this page
+    const $table = $('#columnsTable');
+    if ($table.length) {
+        if ($.fn.DataTable.isDataTable('#columnsTable')) {
+            $table.DataTable().destroy();
+        }
+        $table.DataTable({
+            ...dtConfig,
+            order: [[0, 'asc']]
+        });
+    }
+});
+</script>
+
+<?php require_once __DIR__ . '/../layouts/footer.php'; ?>

@@ -17,8 +17,12 @@
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
         <div class="container-fluid">
-            <a class="navbar-brand" href="/dashboard">
-                <i class="fas fa-chart-line"></i> InfoLine
+            <a class="navbar-brand" href="/">
+                <?php if ($_SESSION['role'] === 'school_admin' && isset($_SESSION['school_name'])): ?>
+                    <?php echo htmlspecialchars($_SESSION['school_name']); ?>
+                <?php else: ?>
+                    <i class="fas fa-chart-line"></i> InfoLine
+                <?php endif; ?>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -30,12 +34,7 @@
                             <i class="fas fa-tachometer-alt"></i> Dashboard
                         </a>
                     </li>
-                    <?php if($_SESSION['role'] === 'superadmin'): ?>
-                    <li class="nav-item">
-                        <a class="nav-link <?php echo strpos($_SERVER['REQUEST_URI'], '/schools') === 0 ? 'active' : ''; ?>" href="/schools">
-                            <i class="fas fa-school"></i> Məktəblər
-                        </a>
-                    </li>
+                    <?php if($_SESSION['role'] === 'super_admin'): ?>
                     <li class="nav-item">
                         <a class="nav-link <?php echo $_SERVER['REQUEST_URI'] === '/settings' ? 'active' : ''; ?>" href="/settings">
                             <i class="fas fa-cog"></i> Ayarlar

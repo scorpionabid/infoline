@@ -23,8 +23,8 @@ class AuthController extends Controller {
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $username = filter_input(INPUT_POST, 'username', FILTER_SANITIZE_STRING);
-            $password = filter_input(INPUT_POST, 'password', FILTER_SANITIZE_STRING);
+            $username = htmlspecialchars(trim($_POST['username'] ?? ''), ENT_QUOTES, 'UTF-8');
+            $password = trim($_POST['password'] ?? '');
 
             if (empty($username) || empty($password)) {
                 return $this->view('auth/login', [
@@ -59,7 +59,14 @@ class AuthController extends Controller {
                 $_SESSION['flash_message'] = 'Sistemə uğurla daxil oldunuz';
                 $_SESSION['flash_type'] = 'success';
                 
-                header('Location: /dashboard');
+                // Rola görə yönləndirmə
+                if ($user['role'] === 'super_admin') {
+                    header('Location: /dashboard');
+                } else if ($user['role'] === 'school_admin') {
+                    header('Location: /dashboard');
+                } else {
+                    header('Location: /dashboard');
+                }
                 exit;
             } else {
                 return $this->view('auth/login', [
@@ -67,9 +74,10 @@ class AuthController extends Controller {
                     'username' => $username
                 ]);
             }
-        } else {
-            $this->view('auth/login');
         }
+
+        // GET sorğusu üçün login səhifəsini göstər
+        return $this->view('auth/login');
     }
 
     public function logout() {

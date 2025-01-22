@@ -70,4 +70,40 @@ class DataValue extends Model {
             GROUP BY c.id, c.name"
         );
     }
+
+    public function updateOrCreate($data) {
+        try {
+            // Check if record exists
+            $existing = $this->findBySchoolAndColumn($data['school_id'], $data['column_id']);
+
+            if ($existing) {
+                // Update existing record
+                $result = $this->db->execute(
+                    "UPDATE {$this->table} 
+                    SET value = :value, updated_at = NOW() 
+                    WHERE school_id = :school_id AND column_id = :column_id",
+                    [
+                        ':value' => $data['value'],
+                        ':school_id' => $data['school_id'],
+                        ':column_id' => $data['column_id']
+                    ]
+                );
+            } else {
+                // Create new record
+                $result = $this->db->execute(
+                    "INSERT INTO {$this->table} (school_id, column_id, value, created_at, updated_at) 
+                    VALUES (:school_id, :column_id, :value, NOW(), NOW())",
+                    [
+                        ':school_id' => $data['school_id'],
+                        ':column_id' => $data['column_id'],
+                        ':value' => $data['value']
+                    ]
+                );
+            }
+
+            return ['success' => true];
+        } catch (\PDOException $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
 }

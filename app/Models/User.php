@@ -1,100 +1,100 @@
 <?php
 namespace App\Models;
 
-use App\Core\Model;
+use App\Core\Database;
+use PDO;
 
-class User extends Model {
-    protected $table = 'users';
+class User {
+    private $db;
 
-    public function create($data) {
-        $sql = "INSERT INTO users (username, password, role, is_active) 
-                VALUES (:username, :password, :role, :is_active)";
-        
-        $params = [
-            ':username' => $data['username'],
-            ':password' => $data['password'],
-            ':role' => $data['role'] ?? 'school_admin',
-            ':is_active' => $data['is_active'] ?? true
-        ];
+    public function __construct() {
+        $this->db = Database::getInstance()->getConnection();
+    }
 
-        return $this->db->insert($sql, $params);
+    public function getById($id) {
+        $stmt = $this->db->prepare("SELECT * FROM users WHERE id = ?");
+        $stmt->execute([$id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
     public function findByUsername($username) {
-        $sql = "SELECT u.*, s.id as school_id, s.name as school_name 
-                FROM users u 
-                LEFT JOIN schools s ON s.admin_id = u.id 
-                WHERE u.username = :username";
-        return $this->db->fetchOne($sql, [':username' => $username]);
+        $stmt = $this->db->prepare("SELECT * FROM users WHERE username = ?");
+        $stmt->execute([$username]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    public function findById($id) {
-        $sql = "SELECT u.*, s.id as school_id, s.name as school_name 
-                FROM users u 
-                LEFT JOIN schools s ON s.admin_id = u.id 
-                WHERE u.id = :id";
-        return $this->db->fetchOne($sql, [':id' => $id]);
+    public function getSchoolByAdminId($adminId) {
+        $stmt = $this->db->prepare("SELECT s.* FROM schools s 
+                                   JOIN users u ON s.id = u.school_id 
+                                   WHERE u.id = ? AND u.role = 'school_admin'");
+        $stmt->execute([$adminId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    public function findAllSchoolAdmins() {
-        $sql = "SELECT u.*, s.id as school_id, s.name as school_name 
-                FROM users u 
-                LEFT JOIN schools s ON s.admin_id = u.id 
-                WHERE u.role = 'school_admin' 
-                ORDER BY s.name";
-        return $this->db->fetchAll($sql);
+    public function getAllSchoolAdmins() {
+        $stmt = $this->db->prepare("SELECT users.*, schools.name as school_name 
+                                   FROM users 
+                                   LEFT JOIN schools ON users.school_id = schools.id 
+                                   WHERE users.role = 'school_admin'");
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function createSchoolAdmin($data) {
+        try {
+            $stmt = $this->db->prepare("INSERT INTO users (name, username, password, role, school_id) 
+                                       VALUES (?, ?, ?, 'school_admin', ?)");
+            $stmt->execute([
+                $data['name'],
+                $data['username'],
+                $data['password'],
+                $data['school_id']
+            ]);
+            return ['success' => true, 'id' => $this->db->lastInsertId()];
+        } catch (\PDOException $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 
     public function update($id, $data) {
-        $updates = [];
-        $params = [':id' => $id];
+        $sql = "UPDATE users SET name = ?, username = ?";
+        $params = [$data['name'], $data['username']];
 
-        // Yalnız verilmiş sahələri yenilə
-        if (isset($data['username'])) {
-            $updates[] = "username = :username";
-            $params[':username'] = $data['username'];
-        }
-        if (isset($data['password'])) {
-            $updates[] = "password = :password";
-            $params[':password'] = $data['password'];
-        }
-        if (isset($data['role'])) {
-            $updates[] = "role = :role";
-            $params[':role'] = $data['role'];
-        }
-        if (isset($data['is_active'])) {
-            $updates[] = "is_active = :is_active";
-            $params[':is_active'] = $data['is_active'];
+        if (!empty($data['password'])) {
+            $sql .= ", password = ?";
+            $params[] = $data['password'];
         }
 
-        if (empty($updates)) {
-            return false;
+        if (isset($data['school_id'])) {
+            $sql .= ", school_id = ?";
+            $params[] = $data['school_id'];
         }
 
-        $sql = "UPDATE users SET " . implode(", ", $updates) . " WHERE id = :id";
-        return $this->db->execute($sql, $params);
+        $sql .= " WHERE id = ?";
+        $params[] = $id;
+
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            return ['success' => true];
+        } catch (\PDOException $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 
     public function delete($id) {
-        // Əvvəlcə school cədvəlindən admin_id referansını təmizlə
-        $sql = "UPDATE schools SET admin_id = NULL WHERE admin_id = :id";
-        $this->db->execute($sql, [':id' => $id]);
-
-        // Sonra istifadəçini sil
-        $sql = "DELETE FROM users WHERE id = :id";
-        return $this->db->execute($sql, [':id' => $id]);
+        try {
+            $stmt = $this->db->prepare("DELETE FROM users WHERE id = ? AND role != 'super_admin'");
+            $stmt->execute([$id]);
+            return ['success' => true];
+        } catch (\PDOException $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 
-    public function isUsernameUnique($username, $excludeId = null) {
-        $sql = "SELECT COUNT(*) as count FROM users WHERE username = :username";
-        $params = [':username' => $username];
-
-        if ($excludeId) {
-            $sql .= " AND id != :id";
-            $params[':id'] = $excludeId;
-        }
-
-        $result = $this->db->fetchOne($sql, $params);
-        return $result['count'] == 0;
+    public function findBySchool($schoolId) {
+        $stmt = $this->db->prepare("SELECT * FROM users WHERE school_id = ? AND role = 'school_admin'");
+        $stmt->execute([$schoolId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }

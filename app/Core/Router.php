@@ -61,7 +61,11 @@ class Router {
                 throw new \Exception('Page not found', 404);
             }
 
-            return $controller_object->$action();
+            $result = $controller_object->$action();
+            if ($result !== null) {
+                echo $result;
+            }
+            return;
         }
         
         error_log("No route matched for URL: " . $url);

@@ -1,109 +1,154 @@
 <?php
 namespace App\Controllers;
 
-use App\Core\Controller;
 use App\Models\School;
 use App\Models\Column;
-use App\Models\DataValue;
+use App\Models\Data;
+use App\Core\View;
+use App\Core\Auth;
 
-class DashboardController extends Controller {
+class DashboardController {
     private $schoolModel;
     private $columnModel;
     private $dataModel;
+    private $auth;
 
     public function __construct() {
-        parent::__construct(); // Parent constructor çağır
-        
-        if (session_status() === PHP_SESSION_NONE) {
-            session_start();
-        }
-        
-        error_log("DashboardController constructed");
-        error_log("Session data in DashboardController: " . print_r($_SESSION, true));
-        
         $this->schoolModel = new School();
         $this->columnModel = new Column();
-        $this->dataModel = new DataValue();
+        $this->dataModel = new Data();
+        $this->auth = new Auth();
     }
 
     public function index() {
-        error_log("DashboardController::index called");
-        
-        try {
-            // Session yoxlaması
-            if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
-                error_log("No session data found, redirecting to login");
-                $_SESSION['flash_message'] = 'Zəhmət olmasa daxil olun';
-                $_SESSION['flash_type'] = 'warning';
-                header('Location: /login');
-                exit;
-            }
+        // Start session if not started
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
 
-            error_log("User role: " . $_SESSION['role']);
+        // Disable caching
+        header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+        header("Cache-Control: post-check=0, pre-check=0", false);
+        header("Pragma: no-cache");
 
-            if ($_SESSION['role'] === 'superadmin') {
-                try {
-                    error_log("Loading superadmin dashboard");
-                    $schools = $this->schoolModel->findAll();
-                    $columns = $this->columnModel->findAll();
-                    $data = $this->dataModel->getAllSchoolData();
-                    
-                    error_log("Loaded data: " . print_r([
-                        'schools_count' => count($schools),
-                        'columns_count' => count($columns),
-                        'data_count' => count($data)
-                    ], true));
-                    
-                    return $this->view('dashboard/superadmin', [
-                        'schools' => $schools,
-                        'columns' => $columns,
-                        'data' => $data
-                    ]);
-                } catch (\Exception $e) {
-                    error_log("Error in superadmin dashboard: " . $e->getMessage());
-                    $_SESSION['flash_message'] = 'Məlumatları yükləyərkən xəta baş verdi';
-                    $_SESSION['flash_type'] = 'danger';
-                    return $this->view('dashboard/superadmin', ['error' => true]);
-                }
-            } elseif ($_SESSION['role'] === 'school_admin') {
-                try {
-                    error_log("Loading school admin dashboard");
-                    $school = $this->schoolModel->findByAdminId($_SESSION['user_id']);
-                    if (!$school) {
-                        throw new \Exception('Məktəb tapılmadı');
-                    }
-
-                    $columns = $this->columnModel->findAll();
-                    $data = $this->dataModel->getSchoolData($school['id']);
-                    
-                    error_log("Loaded school data: " . print_r([
-                        'school_id' => $school['id'],
-                        'columns_count' => count($columns),
-                        'data_count' => count($data)
-                    ], true));
-                    
-                    return $this->view('dashboard/school', [
-                        'school' => $school,
-                        'columns' => $columns,
-                        'data' => $data
-                    ]);
-                } catch (\Exception $e) {
-                    error_log("Error in school admin dashboard: " . $e->getMessage());
-                    $_SESSION['flash_message'] = $e->getMessage();
-                    $_SESSION['flash_type'] = 'danger';
-                    header('Location: /logout');
-                    exit;
-                }
-            } else {
-                error_log("Invalid role: " . $_SESSION['role']);
-                throw new \Exception('İcazəsiz giriş');
-            }
-        } catch (\Exception $e) {
-            error_log("Dashboard access error: " . $e->getMessage());
-            $_SESSION['flash_message'] = 'Sistemə giriş zamanı xəta baş verdi';
-            $_SESSION['flash_type'] = 'danger';
+        // Check if user is logged in
+        if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
             header('Location: /login');
             exit;
+        }
+
+        try {
+            if ($_SESSION['role'] === 'super_admin') {
+                $schools = $this->schoolModel->getAll();
+                $columns = $this->columnModel->getAll();
+                $data = $this->dataModel->getAllSchoolData();
+                
+                return View::render('dashboard/superadmin', [
+                    'schools' => $schools,
+                    'columns' => $columns,
+                    'data' => $data
+                ]);
+            } else {
+                // School admin only sees their own school
+                $school = $this->schoolModel->getById($_SESSION['school_id']);
+                if (!$school) {
+                    throw new \Exception('Məktəb tapılmadı');
+                }
+
+                $columns = $this->columnModel->getAll();
+                $data = $this->dataModel->getSchoolData($school['id']);
+                
+                return View::render('dashboard/school', [
+                    'school' => $school,
+                    'columns' => $columns,
+                    'data' => $data
+                ]);
+            }
+        } catch (\Exception $e) {
+            error_log("Dashboard Error: " . $e->getMessage());
+            return View::render('dashboard/superadmin', ['error' => true]);
+        }
+    }
+
+    public function export() {
+        // TODO: Excel export functionality
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="export.xls"');
+        header('Cache-Control: max-age=0');
+        
+        // Get data
+        $schools = $this->schoolModel->getAll();
+        $columns = $this->columnModel->getAll();
+        $data = $this->dataModel->getAllSchoolData();
+        
+        // Create table
+        echo '<table border="1">';
+        
+        // Headers
+        echo '<tr><th>Məktəb</th>';
+        foreach ($columns as $column) {
+            echo '<th>' . htmlspecialchars($column['name']) . '</th>';
+        }
+        echo '</tr>';
+        
+        // Data
+        foreach ($schools as $school) {
+            echo '<tr>';
+            echo '<td>' . htmlspecialchars($school['name']) . '</td>';
+            
+            foreach ($columns as $column) {
+                $value = '';
+                foreach ($data as $item) {
+                    if ($item['school_id'] == $school['id'] && 
+                        $item['column_id'] == $column['id']) {
+                        $value = $item['value'];
+                        break;
+                    }
+                }
+                echo '<td>' . htmlspecialchars($value) . '</td>';
+            }
+            echo '</tr>';
+        }
+        
+        echo '</table>';
+        exit;
+    }
+
+    public function updateData() {
+        // Start session if not started
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        // Check if user is logged in
+        if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+            return;
+        }
+
+        // Get POST data
+        $data = json_decode(file_get_contents('php://input'), true);
+        if (!$data || !isset($data['school_id']) || !isset($data['column_id']) || !isset($data['value'])) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Invalid data']);
+            return;
+        }
+
+        // Check permissions
+        if ($_SESSION['role'] === 'school_admin' && $_SESSION['school_id'] != $data['school_id']) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+            return;
+        }
+
+        try {
+            $result = $this->dataModel->update($data['school_id'], $data['column_id'], $data['value']);
+            echo json_encode($result);
+        } catch (\Exception $e) {
+            error_log("Data Update Error: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => 'Server error']);
         }
     }
 }

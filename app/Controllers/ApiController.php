@@ -14,6 +14,7 @@ class ApiController extends Controller {
     private $userModel;
 
     public function __construct() {
+        parent::__construct();
         $this->columnModel = new Column();
         $this->dataModel = new DataValue();
         $this->schoolModel = new School();
@@ -164,34 +165,115 @@ class ApiController extends Controller {
         }
     }
 
-    public function export() {
-        if ($_SESSION['role'] !== 'superadmin') {
-            $this->json(['error' => 'Unauthorized']);
+    public function bulkUpdate() {
+        header('Content-Type: application/json');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            echo json_encode(['error' => 'Method not allowed']);
             return;
         }
 
-        $columns = $this->columnModel->findAll();
-        $schools = $this->schoolModel->findAll();
-        $data = [];
-
-        foreach ($schools as $school) {
-            $row = ['Məktəb' => $school['name']];
-            foreach ($columns as $column) {
-                $value = $this->dataModel->findBySchoolAndColumn($school['id'], $column['id']);
-                $row[$column['name']] = $value ? $value['value'] : '';
-            }
-            $data[] = $row;
+        if (!isset($_SESSION['user_id'])) {
+            echo json_encode(['error' => 'Unauthorized']);
+            return;
         }
 
-        header('Content-Type: application/vnd.ms-excel');
-        header('Content-Disposition: attachment;filename="export.csv"');
+        $input = json_decode(file_get_contents('php://input'), true);
         
-        $f = fopen('php://output', 'w');
-        fputcsv($f, array_keys($data[0]));
-        foreach ($data as $row) {
-            fputcsv($f, $row);
+        if (!isset($input['changes']) || !is_array($input['changes'])) {
+            echo json_encode(['error' => 'Invalid data']);
+            return;
         }
-        fclose($f);
+
+        $success = true;
+        $errors = [];
+
+        foreach ($input['changes'] as $change) {
+            if (!isset($change['school_id'], $change['column_id'], $change['value'])) {
+                $errors[] = 'Invalid change data';
+                continue;
+            }
+
+            $result = $this->dataModel->updateOrCreate([
+                'school_id' => $change['school_id'],
+                'column_id' => $change['column_id'],
+                'value' => $change['value']
+            ]);
+
+            if (!$result['success']) {
+                $success = false;
+                $errors[] = $result['error'];
+            }
+        }
+
+        if ($success) {
+            // Get updated data
+            $schools = $this->schoolModel->getAll();
+            $columns = $this->columnModel->getAll();
+            $data = $this->dataModel->getAllSchoolData();
+
+            echo json_encode([
+                'success' => true,
+                'schools' => $schools,
+                'columns' => $columns,
+                'data' => $data
+            ]);
+        } else {
+            echo json_encode([
+                'error' => 'Some updates failed',
+                'details' => $errors
+            ]);
+        }
+    }
+
+    public function export() {
+        if (!isset($_SESSION['user_id'])) {
+            header('HTTP/1.1 401 Unauthorized');
+            exit('Unauthorized');
+        }
+
+        // Get all data
+        $schools = $this->schoolModel->getAll();
+        $columns = $this->columnModel->getAll();
+        $data = $this->dataModel->getAllSchoolData();
+
+        // Set headers for Excel download
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="infoline_data.xls"');
+        header('Cache-Control: max-age=0');
+
+        // Create file pointer to php://output
+        $fp = fopen('php://output', 'w');
+
+        // Add UTF-8 BOM for proper encoding
+        fprintf($fp, chr(0xEF).chr(0xBB).chr(0xBF));
+
+        // Write headers
+        $headers = ['Məktəb'];
+        foreach ($columns as $column) {
+            $headers[] = $column['name'];
+        }
+        fputcsv($fp, $headers, "\t");
+
+        // Write data
+        foreach ($schools as $school) {
+            $row = [$school['name']];
+            foreach ($columns as $column) {
+                $value = '';
+                foreach ($data as $item) {
+                    if ($item['school_id'] == $school['id'] && 
+                        $item['column_id'] == $column['id']) {
+                        $value = $item['value'];
+                        break;
+                    }
+                }
+                $row[] = $value;
+            }
+            fputcsv($fp, $row, "\t");
+        }
+
+        fclose($fp);
+        exit;
     }
 
     private function notifyNewColumn($columnName) {

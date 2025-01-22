@@ -1,68 +1,69 @@
 <?php
 namespace App\Models;
 
-use App\Core\Model;
+use App\Core\Database;
+use PDO;
 
-class Column extends Model {
-    protected $table = 'columns';
+class Column {
+    private $db;
 
-    public function findActive() {
-        return $this->db->fetchAll(
-            "SELECT * FROM {$this->table} WHERE is_active = 1 ORDER BY name"
-        );
+    public function __construct() {
+        $this->db = Database::getInstance()->getConnection();
     }
 
-    public function findByDeadline($date) {
-        return $this->db->fetchAll(
-            "SELECT * FROM {$this->table} 
-            WHERE deadline <= :date AND is_active = 1
-            ORDER BY deadline",
-            [':date' => $date]
-        );
+    public function getAll() {
+        $stmt = $this->db->query("SELECT * FROM columns ORDER BY id DESC");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    public function findWithStats() {
-        return $this->db->fetchAll(
-            "SELECT c.*, 
-                    COUNT(DISTINCT dv.school_id) as filled_schools,
-                    (SELECT COUNT(*) FROM schools) as total_schools
-            FROM {$this->table} c
-            LEFT JOIN data_values dv ON c.id = dv.column_id
-            GROUP BY c.id
-            ORDER BY c.name"
-        );
+    public function getById($id) {
+        $stmt = $this->db->prepare("SELECT * FROM columns WHERE id = ?");
+        $stmt->execute([$id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    public function isNameUnique($name, $excludeId = null) {
-        $sql = "SELECT COUNT(*) as count FROM {$this->table} WHERE name = :name";
-        $params = [':name' => $name];
-
-        if ($excludeId) {
-            $sql .= " AND id != :id";
-            $params[':id'] = $excludeId;
+    public function create($data) {
+        $sql = "INSERT INTO columns (name, type, deadline, is_active) VALUES (?, ?, ?, ?)";
+        $stmt = $this->db->prepare($sql);
+        
+        try {
+            $stmt->execute([
+                $data['name'],
+                $data['type'],
+                $data['deadline'] ?: null,
+                $data['is_active'] ?? true
+            ]);
+            return ['success' => true, 'id' => $this->db->lastInsertId()];
+        } catch (\PDOException $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
         }
-
-        $result = $this->db->fetchOne($sql, $params);
-        return $result['count'] == 0;
     }
 
-    public function updateDeadline($id, $deadline) {
-        return $this->db->execute(
-            "UPDATE {$this->table} SET deadline = :deadline WHERE id = :id",
-            [
-                ':deadline' => $deadline,
-                ':id' => $id
-            ]
-        );
+    public function update($id, $data) {
+        $sql = "UPDATE columns SET name = ?, type = ?, deadline = ?, is_active = ? WHERE id = ?";
+        $stmt = $this->db->prepare($sql);
+        
+        try {
+            $stmt->execute([
+                $data['name'],
+                $data['type'],
+                $data['deadline'] ?: null,
+                $data['is_active'] ?? true,
+                $id
+            ]);
+            return ['success' => true];
+        } catch (\PDOException $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 
-    public function toggleActive($id, $active) {
-        return $this->db->execute(
-            "UPDATE {$this->table} SET is_active = :active WHERE id = :id",
-            [
-                ':active' => $active ? 1 : 0,
-                ':id' => $id
-            ]
-        );
+    public function delete($id) {
+        try {
+            $stmt = $this->db->prepare("DELETE FROM columns WHERE id = ?");
+            $stmt->execute([$id]);
+            return ['success' => true];
+        } catch (\PDOException $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 }

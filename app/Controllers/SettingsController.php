@@ -1,94 +1,190 @@
-<div class="container">
-    <div class="row mb-4">
-        <div class="col">
-            <h2>Sütunlar</h2>
-        </div>
-        <div class="col text-end">
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addColumnModal">
-                Yeni Sütun
-            </button>
-        </div>
-    </div>
+<?php
+namespace App\Controllers;
 
-    <div class="card">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-bordered">
-                    <thead>
-                        <tr>
-                            <th>Sütun Adı</th>
-                            <th>Məlumat Tipi</th>
-                            <th>Son Tarix</th>
-                            <th>Status</th>
-                            <th>Əməliyyatlar</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach($columns as $column): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($column['name']); ?></td>
-                            <td><?php echo htmlspecialchars($column['type']); ?></td>
-                            <td><?php echo $column['deadline'] ? date('d.m.Y H:i', strtotime($column['deadline'])) : '-'; ?></td>
-                            <td>
-                                <span class="badge bg-<?php echo $column['is_active'] ? 'success' : 'danger'; ?>">
-                                    <?php echo $column['is_active'] ? 'Aktiv' : 'Deaktiv'; ?>
-                                </span>
-                            </td>
-                            <td>
-                                <button class="btn btn-sm btn-primary edit-column" data-id="<?php echo $column['id']; ?>">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <button class="btn btn-sm btn-danger delete-column" data-id="<?php echo $column['id']; ?>">
-                                    <i class="bi bi-trash"></i>
-                                </button>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
+use App\Core\Controller;
+use App\Models\Column;
+use App\Models\School;
+use App\Models\User;
+use App\Core\View;
 
-<!-- Add Column Modal -->
-<div class="modal fade" id="addColumnModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Yeni Sütun</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="addColumnForm">
-                    <div class="mb-3">
-                        <label class="form-label">Sütun Adı</label>
-                        <input type="text" class="form-control" name="name" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Məlumat Tipi</label>
-                        <select class="form-select" name="type" required>
-                            <option value="text">Mətn</option>
-                            <option value="number">Rəqəm</option>
-                            <option value="date">Tarix</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Son Tarix</label>
-                        <input type="datetime-local" class="form-control" name="deadline">
-                    </div>
-                    <div class="mb-3">
-                        <div class="form-check">
-                            <input type="checkbox" class="form-check-input" name="is_active" checked>
-                            <label class="form-check-label">Aktiv</label>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Ləğv et</button>
-                <button type="button" class="btn btn-primary" id="saveColumn">Yadda saxla</button>
-            </div>
-        </div>
-    </div>
-</div>
+class SettingsController extends Controller {
+    private $columnModel;
+    private $schoolModel;
+    private $userModel;
+
+    public function __construct() {
+        parent::__construct();
+        $this->columnModel = new Column();
+        $this->schoolModel = new School();
+        $this->userModel = new User();
+
+        // Yalnız superadmin girə bilər
+        if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'super_admin') {
+            header('Location: /login');
+            exit;
+        }
+    }
+
+    public function index() {
+        $columns = $this->columnModel->getAll();
+        $schools = $this->schoolModel->getAll();
+        $schoolAdmins = $this->userModel->getAllSchoolAdmins();
+
+        return View::render('settings/index', [
+            'columns' => $columns,
+            'schools' => $schools,
+            'schoolAdmins' => $schoolAdmins
+        ]);
+    }
+
+    // Sütun əməliyyatları
+    public function addColumn() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return $this->json(['error' => 'Invalid request method']);
+        }
+
+        $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING);
+        $type = filter_input(INPUT_POST, 'type', FILTER_SANITIZE_STRING);
+        $deadline = filter_input(INPUT_POST, 'deadline', FILTER_SANITIZE_STRING);
+        $isActive = filter_input(INPUT_POST, 'is_active', FILTER_VALIDATE_BOOLEAN);
+
+        $result = $this->columnModel->create([
+            'name' => $name,
+            'type' => $type,
+            'deadline' => $deadline,
+            'is_active' => $isActive
+        ]);
+
+        return $this->json($result);
+    }
+
+    public function updateColumn() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return $this->json(['error' => 'Invalid request method']);
+        }
+
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING);
+        $type = filter_input(INPUT_POST, 'type', FILTER_SANITIZE_STRING);
+        $deadline = filter_input(INPUT_POST, 'deadline', FILTER_SANITIZE_STRING);
+        $isActive = filter_input(INPUT_POST, 'is_active', FILTER_VALIDATE_BOOLEAN);
+
+        $result = $this->columnModel->update($id, [
+            'name' => $name,
+            'type' => $type,
+            'deadline' => $deadline,
+            'is_active' => $isActive
+        ]);
+
+        return $this->json($result);
+    }
+
+    public function deleteColumn() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return $this->json(['error' => 'Invalid request method']);
+        }
+
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        $result = $this->columnModel->delete($id);
+
+        return $this->json($result);
+    }
+
+    // Məktəb əməliyyatları
+    public function addSchool() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return $this->json(['error' => 'Invalid request method']);
+        }
+
+        $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING);
+        $result = $this->schoolModel->create(['name' => $name]);
+
+        return $this->json($result);
+    }
+
+    public function updateSchool() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return $this->json(['error' => 'Invalid request method']);
+        }
+
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING);
+        $result = $this->schoolModel->update($id, ['name' => $name]);
+
+        return $this->json($result);
+    }
+
+    public function deleteSchool() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return $this->json(['error' => 'Invalid request method']);
+        }
+
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        $result = $this->schoolModel->delete($id);
+
+        return $this->json($result);
+    }
+
+    // Məktəb admin əməliyyatları
+    public function addSchoolAdmin() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return $this->json(['error' => 'Invalid request method']);
+        }
+
+        $schoolId = filter_input(INPUT_POST, 'school_id', FILTER_VALIDATE_INT);
+        $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING);
+        $username = filter_input(INPUT_POST, 'username', FILTER_SANITIZE_STRING);
+        $password = filter_input(INPUT_POST, 'password', FILTER_SANITIZE_STRING);
+
+        $result = $this->userModel->createSchoolAdmin([
+            'school_id' => $schoolId,
+            'name' => $name,
+            'username' => $username,
+            'password' => password_hash($password, PASSWORD_DEFAULT),
+            'role' => 'school_admin',
+            'is_active' => true
+        ]);
+
+        return $this->json($result);
+    }
+
+    public function updateSchoolAdmin() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return $this->json(['error' => 'Invalid request method']);
+        }
+
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        $schoolId = filter_input(INPUT_POST, 'school_id', FILTER_VALIDATE_INT);
+        $name = filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING);
+        $username = filter_input(INPUT_POST, 'username', FILTER_SANITIZE_STRING);
+        $password = filter_input(INPUT_POST, 'password', FILTER_SANITIZE_STRING);
+        $isActive = filter_input(INPUT_POST, 'is_active', FILTER_VALIDATE_BOOLEAN);
+
+        $data = [
+            'school_id' => $schoolId,
+            'name' => $name,
+            'username' => $username,
+            'is_active' => $isActive
+        ];
+
+        // Əgər yeni parol daxil edilibsə
+        if (!empty($password)) {
+            $data['password'] = password_hash($password, PASSWORD_DEFAULT);
+        }
+
+        $result = $this->userModel->update($id, $data);
+
+        return $this->json($result);
+    }
+
+    public function deleteSchoolAdmin() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            return $this->json(['error' => 'Invalid request method']);
+        }
+
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        $result = $this->userModel->delete($id);
+
+        return $this->json($result);
+    }
+}

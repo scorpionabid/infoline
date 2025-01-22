@@ -1,18 +1,4 @@
 $(document).ready(function() {
-    // Initialize DataTables
-    $('#columnsTable, #schoolsTable').DataTable({
-        "language": {
-            "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/az.json"
-        }
-    });
-
-    $('#dataTable').DataTable({
-        "scrollX": true,
-        "language": {
-            "url": "//cdn.datatables.net/plug-ins/1.13.4/i18n/az.json"
-        }
-    });
-
     // WebSocket Connection
     const wsUrl = `ws://${window.location.hostname}:${window.appConfig.wsPort}`;
     const ws = new WebSocket(wsUrl);
@@ -94,19 +80,25 @@ $(document).ready(function() {
 
     // School Admin operations
     $('#saveSchoolAdmin').click(function() {
-        const schoolName = $('#schoolName').val();
-        const username = $('#adminUsername').val();
-        const password = $('#adminPassword').val();
-        const email = $('#adminEmail').val();
-        const phone = $('#adminPhone').val();
-
         const data = {
-            school_name: schoolName,
-            username: username,
-            password: password,
-            email: email,
-            phone: phone
+            school_name: $('#schoolName').val(),
+            username: $('#adminUsername').val(),
+            password: $('#adminPassword').val(),
+            email: $('#adminEmail').val() || null,
+            phone: $('#adminPhone').val() || null,
+            is_active: $('#adminIsActive').is(':checked') ? 1 : 0
         };
+
+        // Form validation
+        if (!data.school_name || !data.username || !data.password) {
+            showNotification('Məktəb adı, istifadəçi adı və şifrə mütləq doldurulmalıdır', 'danger');
+            return;
+        }
+
+        // Disable button while processing
+        const $btn = $(this);
+        const originalText = $btn.html();
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Gözləyin...');
 
         $.ajax({
             url: '/api/school-admin',
@@ -114,12 +106,59 @@ $(document).ready(function() {
             contentType: 'application/json',
             data: JSON.stringify(data),
             success: function(response) {
+                showNotification('Məktəb admini uğurla əlavə edildi', 'success');
                 $('#addSchoolAdminModal').modal('hide');
-                showNotification('Məktəb admini uğurla əlavə edildi');
+                
+                // Clear form
+                $('#addSchoolAdminForm')[0].reset();
+                
+                // Refresh table if exists
+                if ($.fn.DataTable.isDataTable('#schoolsTable')) {
+                    $('#schoolsTable').DataTable().ajax.reload();
+                } else {
+                    // If no DataTable, just reload the page
+                    setTimeout(() => location.reload(), 1000);
+                }
+            },
+            error: function(xhr) {
+                const message = xhr.responseJSON?.error || 'Xəta baş verdi';
+                showNotification(message, 'danger');
+            },
+            complete: function() {
+                // Re-enable button
+                $btn.prop('disabled', false).html(originalText);
+            }
+        });
+    });
+
+    // Add/Edit School
+    $('#saveSchool').click(function() {
+        const schoolName = $('#schoolName').val();
+        if (!schoolName) {
+            showNotification('Məktəb adı daxil edilməlidir', 'danger');
+            return;
+        }
+
+        // Disable button while processing
+        const $btn = $(this);
+        const originalText = $btn.html();
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Gözləyin...');
+
+        $.ajax({
+            url: '/api/schools',
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ name: schoolName }),
+            success: function(response) {
+                $('#schoolModal').modal('hide');
+                showNotification('Məktəb uğurla əlavə edildi');
                 setTimeout(() => location.reload(), 1000);
             },
             error: function(xhr) {
                 showNotification(xhr.responseJSON?.error || 'Xəta baş verdi', 'danger');
+            },
+            complete: function() {
+                $btn.prop('disabled', false).html(originalText);
             }
         });
     });
@@ -219,63 +258,75 @@ $(document).ready(function() {
     });
 
     // Data cell operations
-    $('.data-cell').click(function() {
+    let hasChanges = false;
+    let changedData = [];
+
+    // For school admin view
+    $('.data-cell').on('input', function() {
         const cell = $(this);
-        const currentValue = cell.text().trim();
         const columnId = cell.data('column');
-        
-        // Get column type and options
-        $.get('/api/columns/' + columnId, function(column) {
-            let input;
-            
-            if (column.type === 'select') {
-                input = $('<select>').addClass('form-control');
-                input.append($('<option>').val('').text('-'));
-                column.options.forEach(option => {
-                    input.append($('<option>').val(option).text(option));
-                });
-                input.val(currentValue === '-' ? '' : currentValue);
-            } else {
-                const inputType = column.type === 'number' ? 'number' : 
-                                column.type === 'date' ? 'date' : 'text';
-                input = $('<input>')
-                    .attr('type', inputType)
-                    .val(currentValue === '-' ? '' : currentValue)
-                    .addClass('form-control');
-            }
+        const value = cell.text().trim();
 
-            cell.html(input);
-            input.focus();
-
-            const saveData = function() {
-                const newValue = input.val().trim();
-                const data = {
-                    school_id: cell.data('school'),
-                    column_id: columnId,
-                    value: newValue
-                };
-
-                $.ajax({
-                    url: '/api/data',
-                    method: 'POST',
-                    contentType: 'application/json',
-                    data: JSON.stringify(data),
-                    success: function() {
-                        cell.html(newValue || '-');
-                        showNotification('Məlumat uğurla yadda saxlanıldı');
-                    },
-                    error: function(xhr) {
-                        showNotification(xhr.responseJSON?.error || 'Xəta baş verdi', 'danger');
-                        cell.html(currentValue || '-');
-                    }
-                });
-            };
-
-            input.blur(saveData);
-            input.keypress(function(e) {
-                if (e.which === 13) saveData();
-            });
+        // Add to changed data array
+        changedData = changedData.filter(item => item.column_id !== columnId);
+        changedData.push({
+            column_id: columnId,
+            value: value
         });
+
+        // Show save button
+        hasChanges = true;
+        $('#saveChanges').show();
+    });
+
+    // Save changes
+    $('#saveChanges').click(function() {
+        const $btn = $(this);
+        const originalText = $btn.html();
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Gözləyin...');
+
+        // Get school ID from meta tag
+        const schoolId = $('meta[name="school-id"]').attr('content');
+        
+        // Prepare promises array
+        const promises = changedData.map(data => 
+            $.ajax({
+                url: '/api/data/update',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    ...data,
+                    school_id: schoolId
+                })
+            })
+        );
+
+        Promise.all(promises)
+            .then(() => {
+                showNotification('Məlumatlar uğurla yadda saxlanıldı');
+                hasChanges = false;
+                changedData = [];
+                $('#saveChanges').hide();
+
+                // Refresh the page after a short delay
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            })
+            .catch(error => {
+                showNotification(error.responseJSON?.error || 'Xəta baş verdi', 'danger');
+            })
+            .finally(() => {
+                $btn.prop('disabled', false).html(originalText);
+            });
+    });
+
+    // Prevent leaving page with unsaved changes
+    window.addEventListener('beforeunload', function(e) {
+        if (hasChanges) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
     });
 
     // Excel export
