@@ -19,6 +19,7 @@ $router->add('logout', ['controller' => 'auth', 'action' => 'logout']);
 // Dashboard routes
 $router->add('dashboard', ['controller' => 'dashboard', 'action' => 'index']);
 $router->add('dashboard/', ['controller' => 'dashboard', 'action' => 'index']); 
+$router->add('dashboard/export', ['controller' => 'dashboard', 'action' => 'export']);
 $router->add('columns', ['controller' => 'columns', 'action' => 'index']);
 $router->add('schools', ['controller' => 'schools', 'action' => 'index']);
 $router->add('settings', ['controller' => 'settings', 'action' => 'index']);
@@ -26,6 +27,9 @@ $router->add('profile', ['controller' => 'profile', 'action' => 'index']);
 
 // Settings routes
 $router->add('settings', ['controller' => 'settings', 'action' => 'index']);
+$router->add('settings/importSchools', ['controller' => 'settings', 'action' => 'importSchools']);
+$router->add('settings/importSchoolAdmins', ['controller' => 'settings', 'action' => 'importSchoolAdmins']);
+$router->add('settings/downloadTemplate/([^/]+)', ['controller' => 'settings', 'action' => 'downloadTemplate']);
 $router->add('settings/addColumn', ['controller' => 'settings', 'action' => 'addColumn']);
 $router->add('settings/updateColumn', ['controller' => 'settings', 'action' => 'updateColumn']);
 $router->add('settings/deleteColumn', ['controller' => 'settings', 'action' => 'deleteColumn']);

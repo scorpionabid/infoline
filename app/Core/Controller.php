@@ -37,8 +37,20 @@ class Controller {
     }
 
     protected function json($data) {
-        header('Content-Type: application/json');
-        echo json_encode($data);
+        try {
+            header('Content-Type: application/json; charset=utf-8');
+            $json = json_encode($data, JSON_UNESCAPED_UNICODE);
+            
+            if ($json === false) {
+                error_log("JSON encode error: " . json_last_error_msg());
+                echo json_encode(['error' => 'Internal server error']);
+            } else {
+                echo $json;
+            }
+        } catch (\Exception $e) {
+            error_log("Error in json response: " . $e->getMessage());
+            echo json_encode(['error' => 'Internal server error']);
+        }
     }
 
     protected function redirect($url) {

@@ -103,6 +103,8 @@
 }
 </style>
 
+<?php require_once __DIR__ . '/../layouts/footer.php'; ?>
+
 <script>
 $(document).ready(function() {
     function showNotification(message, type = 'success') {
@@ -243,9 +245,115 @@ $(document).ready(function() {
 
     // Excel export
     $('#excelExport').click(function() {
-        window.location.href = '/api/export';
+        console.log('Export button clicked');
+        const btn = $(this);
+        btn.prop('disabled', true);
+        btn.html('<i class="fas fa-spinner fa-spin"></i> Export edilir...');
+        
+        $.ajax({
+            url: '/dashboard/export',
+            method: 'GET',
+            success: function(response) {
+                console.log('Export response received:', response);
+                try {
+                    const data = typeof response === 'string' ? JSON.parse(response) : response;
+                    console.log('Parsed data:', data);
+                    if (data.success) {
+                        console.log('Creating download link for:', data.url);
+                        const link = document.createElement('a');
+                        link.href = data.url;
+                        link.download = data.filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        showNotification('Excel faylı uğurla yaradıldı', 'success');
+                    } else {
+                        console.error('Export failed:', data.error);
+                        showNotification(data.error || 'Export zamanı xəta baş verdi', 'danger');
+                    }
+                } catch (e) {
+                    console.error('JSON parse error:', e, 'Response was:', response);
+                    showNotification('Export zamanı xəta baş verdi', 'danger');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX error:', {xhr, status, error});
+                console.error('Response:', xhr.responseText);
+                let errorMessage = 'Export zamanı xəta baş verdi';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMessage = xhr.responseJSON.error;
+                }
+                showNotification(errorMessage, 'danger');
+            },
+            complete: function() {
+                console.log('Export request completed');
+                btn.prop('disabled', false);
+                btn.html('<i class="fas fa-file-excel"></i> Excel Export');
+            }
+        });
     });
 });
 </script>
 
-<?php require_once __DIR__ . '/../layouts/footer.php'; ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded');
+    console.log('jQuery version:', $.fn.jquery);
+    console.log('Export button exists:', $('#excelExport').length);
+    
+    // Export button click handler
+    $(document).on('click', '#excelExport', function(e) {
+        e.preventDefault();
+        console.log('Export button clicked');
+        
+        const btn = $(this);
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Export edilir...');
+        
+        // Test alert
+        alert('Export düyməsi işləyir!');
+        
+        $.ajax({
+            url: '/dashboard/export',
+            method: 'GET',
+            success: function(response) {
+                console.log('Export response received:', response);
+                try {
+                    const data = typeof response === 'string' ? JSON.parse(response) : response;
+                    console.log('Parsed data:', data);
+                    if (data.success) {
+                        console.log('Creating download link for:', data.url);
+                        const link = document.createElement('a');
+                        link.href = data.url;
+                        link.download = data.filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        showNotification('Excel faylı uğurla yaradıldı', 'success');
+                    } else {
+                        console.error('Export failed:', data.error);
+                        showNotification(data.error || 'Export zamanı xəta baş verdi', 'danger');
+                    }
+                } catch (e) {
+                    console.error('JSON parse error:', e, 'Response was:', response);
+                    showNotification('Export zamanı xəta baş verdi', 'danger');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX error:', {xhr, status, error});
+                console.error('Response:', xhr.responseText);
+                let errorMessage = 'Export zamanı xəta baş verdi';
+                if (xhr.responseJSON && xhr.responseJSON.error) {
+                    errorMessage = xhr.responseJSON.error;
+                }
+                showNotification(errorMessage, 'danger');
+            },
+            complete: function() {
+                console.log('Export request completed');
+                btn.prop('disabled', false).html('<i class="fas fa-file-excel"></i> Excel Export');
+            }
+        });
+    });
+});
+</script>

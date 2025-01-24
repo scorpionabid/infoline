@@ -71,47 +71,121 @@ class DashboardController {
     }
 
     public function export() {
-        // TODO: Excel export functionality
-        header('Content-Type: application/vnd.ms-excel');
-        header('Content-Disposition: attachment;filename="export.xls"');
-        header('Cache-Control: max-age=0');
-        
-        // Get data
-        $schools = $this->schoolModel->getAll();
-        $columns = $this->columnModel->getAll();
-        $data = $this->dataModel->getAllSchoolData();
-        
-        // Create table
-        echo '<table border="1">';
-        
-        // Headers
-        echo '<tr><th>Məktəb</th>';
-        foreach ($columns as $column) {
-            echo '<th>' . htmlspecialchars($column['name']) . '</th>';
+        // Start session if not started
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
         }
-        echo '</tr>';
-        
-        // Data
-        foreach ($schools as $school) {
-            echo '<tr>';
-            echo '<td>' . htmlspecialchars($school['name']) . '</td>';
+
+        error_log("Export request received");
+        error_log("Session data: " . print_r($_SESSION, true));
+
+        if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'super_admin') {
+            error_log("Authorization failed: user_id=" . ($_SESSION['user_id'] ?? 'not set') . ", role=" . ($_SESSION['role'] ?? 'not set'));
+            header('HTTP/1.1 403 Forbidden');
+            echo json_encode(['error' => 'İcazə yoxdur']);
+            return;
+        }
+
+        try {
+            error_log("Starting Excel export process");
             
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            
+            // Get data
+            $schools = $this->schoolModel->getAll();
+            error_log("Schools data: " . count($schools) . " records found");
+            
+            $columns = $this->columnModel->getAll();
+            error_log("Columns data: " . count($columns) . " records found");
+            
+            $data = $this->dataModel->getAllSchoolData();
+            error_log("School data: " . count($data) . " records found");
+            
+            // Set headers
+            $sheet->setCellValue('A1', 'Məktəb Kodu');
+            $sheet->setCellValue('B1', 'Məktəb Adı');
+            $sheet->setCellValue('C1', 'Region');
+            $sheet->setCellValue('D1', 'Ünvan');
+            $sheet->setCellValue('E1', 'Telefon');
+            $sheet->setCellValue('F1', 'Direktor');
+            
+            $col = 'G';
             foreach ($columns as $column) {
-                $value = '';
-                foreach ($data as $item) {
-                    if ($item['school_id'] == $school['id'] && 
-                        $item['column_id'] == $column['id']) {
-                        $value = $item['value'];
-                        break;
-                    }
-                }
-                echo '<td>' . htmlspecialchars($value) . '</td>';
+                $sheet->setCellValue($col . '1', $column['name']);
+                $col++;
             }
-            echo '</tr>';
+            
+            // Fill data
+            $row = 2;
+            foreach ($schools as $school) {
+                $sheet->setCellValue('A' . $row, $school['code']);
+                $sheet->setCellValue('B' . $row, $school['name']);
+                $sheet->setCellValue('C' . $row, $school['region']);
+                $sheet->setCellValue('D' . $row, $school['address']);
+                $sheet->setCellValue('E' . $row, $school['phone']);
+                $sheet->setCellValue('F' . $row, $school['principal_name']);
+                
+                $col = 'G';
+                foreach ($columns as $column) {
+                    $value = '';
+                    foreach ($data as $item) {
+                        if ($item['school_id'] == $school['id'] && $item['column_id'] == $column['id']) {
+                            $value = $item['value'];
+                            break;
+                        }
+                    }
+                    $sheet->setCellValue($col . $row, $value);
+                    $col++;
+                }
+                $row++;
+            }
+            
+            // Style the header
+            $headerStyle = [
+                'font' => [
+                    'bold' => true,
+                    'color' => ['rgb' => 'FFFFFF'],
+                ],
+                'fill' => [
+                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                    'startColor' => ['rgb' => '4F81BD']
+                ],
+                'alignment' => [
+                    'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+                ],
+            ];
+            
+            $sheet->getStyle('A1:' . $col . '1')->applyFromArray($headerStyle);
+            
+            // Auto-size columns
+            foreach (range('A', $col) as $columnID) {
+                $sheet->getColumnDimension($columnID)->setAutoSize(true);
+            }
+            
+            // Create Excel file
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+            $filename = 'mekteb_melumatlari_' . date('Y-m-d_H-i-s') . '.xlsx';
+            $filepath = __DIR__ . '/../../public/exports/' . $filename;
+            
+            // Ensure exports directory exists
+            if (!file_exists(dirname($filepath))) {
+                mkdir(dirname($filepath), 0777, true);
+            }
+            
+            $writer->save($filepath);
+            
+            echo json_encode([
+                'success' => true,
+                'filename' => $filename,
+                'url' => '/exports/' . $filename
+            ]);
+            
+        } catch (\Exception $e) {
+            error_log("Excel Export Error: " . $e->getMessage());
+            header('HTTP/1.1 500 Internal Server Error');
+            echo json_encode(['error' => 'Export zamanı xəta baş verdi']);
         }
-        
-        echo '</table>';
-        exit;
     }
 
     public function updateData() {

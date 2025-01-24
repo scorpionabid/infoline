@@ -33,14 +33,35 @@ class School {
     }
 
     public function create($data) {
-        $sql = "INSERT INTO schools (name) VALUES (?)";
+        $sql = "INSERT INTO schools (name, code) VALUES (?, ?)";
         $stmt = $this->db->prepare($sql);
         
         try {
-            $stmt->execute([$data['name']]);
-            return ['success' => true, 'id' => $this->db->lastInsertId()];
+            if (empty($data['name'])) {
+                return ['success' => false, 'error' => 'Məktəb adı daxil edilməlidir'];
+            }
+
+            // Generate a unique code for the school (e.g., SCH001, SCH002, etc.)
+            $stmt = $this->db->query("SELECT MAX(CAST(SUBSTRING(code, 4) AS UNSIGNED)) as max_code FROM schools WHERE code LIKE 'SCH%'");
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            $maxCode = $result['max_code'] ?? 0;
+            $newCode = 'SCH' . str_pad($maxCode + 1, 3, '0', STR_PAD_LEFT);
+
+            // Prepare and execute the insert statement
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$data['name'], $newCode]);
+
+            return [
+                'success' => true, 
+                'id' => $this->db->lastInsertId(),
+                'message' => 'Məktəb uğurla əlavə edildi'
+            ];
         } catch (\PDOException $e) {
-            return ['success' => false, 'error' => $e->getMessage()];
+            error_log("Error in create school: " . $e->getMessage());
+            if ($e->getCode() == 23000) { // Duplicate entry
+                return ['success' => false, 'error' => 'Bu adda məktəb artıq mövcuddur'];
+            }
+            return ['success' => false, 'error' => 'Məktəb əlavə edilərkən xəta baş verdi'];
         }
     }
 
@@ -58,17 +79,39 @@ class School {
 
     public function delete($id) {
         try {
-            // Əvvəlcə məktəbə aid adminləri yoxlayaq
-            $stmt = $this->db->prepare("SELECT COUNT(*) FROM users WHERE school_id = ? AND role = 'school_admin'");
+            $this->db->beginTransaction();
+            
+            // FOR UPDATE ilə məktəbi və adminləri yoxlayaq
+            $stmt = $this->db->prepare("SELECT * FROM schools WHERE id = ? FOR UPDATE");
             $stmt->execute([$id]);
-            if ($stmt->fetchColumn() > 0) {
+            $school = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (!$school) {
+                throw new \Exception('Məktəb tapılmadı');
+            }
+
+            // Aktiv adminləri yoxlayaq
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM users WHERE school_id = ? AND role = 'school_admin' FOR UPDATE");
+            $stmt->execute([$id]);
+            $adminCount = $stmt->fetchColumn();
+
+            if ($adminCount > 0) {
+                $this->db->rollBack();
                 return ['success' => false, 'error' => 'Bu məktəbə aid adminlər var. Əvvəlcə onları silin.'];
             }
 
+            // Məktəbi sil
             $stmt = $this->db->prepare("DELETE FROM schools WHERE id = ?");
             $stmt->execute([$id]);
+
+            if ($stmt->rowCount() === 0) {
+                throw new \Exception('Məktəb silinmədi');
+            }
+
+            $this->db->commit();
             return ['success' => true];
-        } catch (\PDOException $e) {
+        } catch (\Exception $e) {
+            $this->db->rollBack();
             return ['success' => false, 'error' => $e->getMessage()];
         }
     }

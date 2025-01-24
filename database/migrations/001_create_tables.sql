@@ -1,5 +1,14 @@
+
+-- Migrations table
+CREATE TABLE IF NOT EXISTS migrations (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    migration VARCHAR(255) NOT NULL,
+    batch INT NOT NULL,
+    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Users table
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
@@ -11,7 +20,7 @@ CREATE TABLE users (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Schools table
-CREATE TABLE schools (
+CREATE TABLE IF NOT EXISTS schools (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     admin_id INT,
@@ -21,7 +30,7 @@ CREATE TABLE schools (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Columns table
-CREATE TABLE columns (
+CREATE TABLE IF NOT EXISTS columns (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     type ENUM('text', 'number') NOT NULL,
@@ -32,7 +41,7 @@ CREATE TABLE columns (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Data values table
-CREATE TABLE data_values (
+CREATE TABLE IF NOT EXISTS data_values (
     id INT AUTO_INCREMENT PRIMARY KEY,
     school_id INT NOT NULL,
     column_id INT NOT NULL,
@@ -44,7 +53,7 @@ CREATE TABLE data_values (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Notifications table
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
     id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     title VARCHAR(255) NOT NULL,

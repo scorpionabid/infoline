@@ -1,4 +1,37 @@
+# IDE və editor faylları
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# PHP faylları
 vendor/
+composer.lock
 .env
-*.log
+
+# Sistem faylları
 .DS_Store
+Thumbs.db
+
+# Log faylları
+*.log
+logs/
+error_log
+
+# Cache və session faylları
+/cache/
+/sessions/
+*.cache
+
+# Konfiqurasiya faylları
+config.php
+
+# Yüklənən fayllar
+/uploads/
+/public/uploads/
+
+# Müvəqqəti fayllar
+*.tmp
+*.temp
+*.swp
+*.bak
