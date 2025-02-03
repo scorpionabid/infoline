@@ -6,150 +6,187 @@ use PDOException;
 
 class Database {
     private static $instance = null;
-    private $connection;
+    private $connections = [];
+    private $config;
+    private $activeConnections = 0;
 
-    private function __construct($options = []) {
-        $host = getenv('DB_HOST') ?: 'localhost';
-        $port = getenv('DB_PORT') ?: '3306';
-        $database = getenv('DB_DATABASE') ?: 'infoline';
-        $username = getenv('DB_USERNAME') ?: 'root';
-        $password = getenv('DB_PASSWORD') ?: 'z@qA00tala62';
-
-        $default_options = [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4",
-            PDO::MYSQL_ATTR_USE_BUFFERED_QUERY => true
-        ];
-
-        $final_options = array_merge($default_options, $options);
-
-        try {
-            $dsn = "mysql:host=$host;port=$port;dbname=$database;charset=utf8mb4";
-            error_log("Attempting database connection to: $host:$port/$database");
-            
-            $this->connection = new PDO($dsn, $username, $password, $final_options);
-            error_log("Database connection successful");
-        } catch (PDOException $e) {
-            error_log("Database connection failed: " . $e->getMessage());
-            throw new \Exception("Database connection failed. Please check your configuration.");
-        }
+    private function __construct() {
+        $this->loadConfig();
     }
 
-    public static function getInstance($options = []) {
+    private function loadConfig() {
+        $configPath = __DIR__ . '/../../config/database.php';
+        if (!file_exists($configPath)) {
+            throw new \Exception('Database konfiqurasiya faylı tapılmadı');
+        }
+        $this->config = require $configPath;
+    }
+
+    public static function getInstance() {
         if (self::$instance === null) {
-            self::$instance = new self($options);
+            self::$instance = new self();
         }
         return self::$instance;
     }
 
     public function getConnection() {
-        return $this->connection;
-    }
-
-    public function initializeTables() {
         try {
-            // Set default character set and collation
-            $this->connection->exec("SET NAMES utf8mb4");
-            $this->connection->exec("SET CHARACTER SET utf8mb4");
-            $this->connection->exec("SET character_set_connection=utf8mb4");
-            
-            // Start transaction
-            $this->connection->beginTransaction();
-
-            try {
-                // Drop existing tables
-                $this->connection->exec("DROP TABLE IF EXISTS data");
-                $this->connection->exec("DROP TABLE IF EXISTS users");
-                $this->connection->exec("DROP TABLE IF EXISTS schools");
-                $this->connection->exec("DROP TABLE IF EXISTS columns");
-
-                // Create schools table
-                $this->connection->exec("CREATE TABLE schools (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    name VARCHAR(255) NOT NULL UNIQUE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-
-                // Create users table
-                $this->connection->exec("CREATE TABLE users (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    school_id INT NULL,
-                    name VARCHAR(255) NOT NULL,
-                    username VARCHAR(50) NOT NULL UNIQUE,
-                    password VARCHAR(255) NOT NULL,
-                    role ENUM('super_admin', 'school_admin') NOT NULL DEFAULT 'school_admin',
-                    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE SET NULL
-                ) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-
-                // Create columns table
-                $this->connection->exec("CREATE TABLE columns (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    name VARCHAR(255) NOT NULL UNIQUE,
-                    type ENUM('text', 'number', 'date', 'select') NOT NULL DEFAULT 'text',
-                    deadline DATETIME NULL,
-                    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-
-                // Create data table
-                $this->connection->exec("CREATE TABLE data (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    school_id INT NOT NULL,
-                    column_id INT NOT NULL,
-                    value TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
-                    FOREIGN KEY (column_id) REFERENCES columns(id) ON DELETE CASCADE
-                ) ENGINE=InnoDB CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-
-                // Insert super admin user
-                $this->connection->exec("INSERT INTO users (name, username, password, role, is_active)
-                    VALUES (
-                        'Super Admin',
-                        'admin',
-                        '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi',
-                        'super_admin',
-                        true
-                    )");
-
-                // Commit transaction
-                $this->connection->commit();
-                return true;
-            } catch (PDOException $e) {
-                // Rollback on error
-                $this->connection->rollBack();
-                error_log("Database initialization error: " . $e->getMessage());
-                throw $e;
+            // Əgər heç bir connection yoxdursa, yeni bir connection yarat
+            if (empty($this->connections)) {
+                return $this->createNewConnection();
             }
-        } catch (PDOException $e) {
-            error_log("Fatal database error: " . $e->getMessage());
-            return false;
+
+            // Mövcud connectionlardan birini istifadə et
+            return $this->connections[0];
+        } catch (\Exception $e) {
+            throw new \Exception("Database bağlantısı yaratmaq mümkün olmadı: " . $e->getMessage());
         }
     }
 
-    public function checkTableStructure($table) {
+    private function createNewConnection() {
         try {
-            $stmt = $this->connection->prepare("DESCRIBE $table");
-            $stmt->execute();
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (PDOException $e) {
-            error_log("Table structure check error: " . $e->getMessage());
-            return false;
+            $config = $this->config['default'];
+            
+            $dsn = sprintf(
+                "mysql:host=%s;port=%s;dbname=%s;charset=%s",
+                $config['host'],
+                $config['port'],
+                $config['database'],
+                $config['charset']
+            );
+
+            $options = [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false
+            ];
+
+            $connection = new PDO(
+                $dsn,
+                $config['username'],
+                $config['password'],
+                $options
+            );
+
+            $this->connections[] = $connection;
+            return $connection;
+        } catch (\PDOException $e) {
+            throw new \Exception(
+                'Database serverə qoşulmaq mümkün olmadı: ' . $e->getMessage()
+            );
         }
     }
 
-    // Prevent cloning
-    private function __clone() {}
-
-    // Prevent unserialization
-    public function __wakeup() {
-        throw new \Exception("Cannot unserialize singleton");
+    public function prepare($sql) {
+        try {
+            $connection = $this->getConnection();
+            return $connection->prepare($sql);
+        } catch (\Exception $e) {
+            error_log("Database->prepare Exception: " . $e->getMessage());
+            throw new \Exception("SQL hazırlanarkən xəta baş verdi: " . $e->getMessage());
+        }
     }
+
+    public function query($sql, $params = []) {
+        try {
+            $connection = $this->getConnection();
+            $stmt = $connection->prepare($sql);
+            $stmt->execute($params);
+            return $stmt;
+        } catch (\Exception $e) {
+            error_log("Database->query Exception: " . $e->getMessage());
+            throw new \Exception("Sorğu icra edilərkən xəta baş verdi: " . $e->getMessage());
+        }
+    }
+
+    public function execute($sql, $params = []) {
+        try {
+            $statement = $this->prepare($sql);
+            $statement->execute($params);
+            return $statement;
+        } catch (\PDOException $e) {
+            error_log("Database execute error: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    public function fetchAll($sql, $params = []) {
+        try {
+            $statement = $this->query($sql, $params);
+            if ($statement instanceof \PDOStatement) {
+                return $statement->fetchAll(PDO::FETCH_ASSOC);
+            }
+            return [];
+        } catch (\PDOException $e) {
+            error_log("Database fetchAll error: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    public function fetchOne($sql, $params = []) {
+        try {
+            $statement = $this->query($sql, $params);
+            if ($statement instanceof \PDOStatement) {
+                return $statement->fetch(PDO::FETCH_ASSOC);
+            }
+            return null;
+        } catch (\PDOException $e) {
+            error_log("Database fetchOne error: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    public function fetchColumn($sql, $params = []) {
+        try {
+            $statement = $this->query($sql, $params);
+            if ($statement instanceof \PDOStatement) {
+                return $statement->fetchColumn();
+            }
+            return null;
+        } catch (\PDOException $e) {
+            error_log("Database fetchColumn error: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    public function lastInsertId() {
+        return $this->getConnection()->lastInsertId();
+    }
+
+    public function beginTransaction() {
+        $connection = $this->getConnection();
+        if (!$connection->inTransaction()) {
+            return $connection->beginTransaction();
+        }
+        return true;
+    }
+
+    public function commit() {
+        $connection = $this->getConnection();
+        if ($connection->inTransaction()) {
+            return $connection->commit();
+        }
+        return true;
+    }
+
+    public function rollBack() {
+        $connection = $this->getConnection();
+        if ($connection->inTransaction()) {
+            return $connection->rollBack();
+        }
+        return true;
+    }
+
+    public function __destruct() {
+        // Bütün connection-ları bağla
+        foreach ($this->connections as $connection) {
+            $connection = null;
+        }
+        $this->connections = [];
+        $this->activeConnections = 0;
+    }
+
+    // Clone-lamanı qadağan et
+    private function __clone() {}
+    private function __wakeup() {}
 }

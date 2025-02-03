@@ -22,19 +22,118 @@ class ApiController extends Controller {
     }
 
     private function getJsonInput() {
-        return json_decode(file_get_contents('php://input'), true);
+        $jsonData = file_get_contents('php://input');
+        error_log("Raw JSON input: " . $jsonData);
+        $data = json_decode($jsonData, true);
+        error_log("Decoded JSON: " . print_r($data, true));
+        return $data;
+    }
+
+    public function categories($id = null) {
+        error_log("Categories endpoint called with method: " . $_SERVER['REQUEST_METHOD']);
+        error_log("User role: " . $_SESSION['role']);
+
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $result = $this->columnModel->getCategories();
+            error_log("GET categories result: " . print_r($result, true));
+            
+            if ($result['success']) {
+                $this->json(['success' => true, 'data' => $result['data']]);
+            } else {
+                $this->json(['success' => false, 'message' => $result['message']]);
+            }
+            return;
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if ($_SESSION['role'] !== 'super_admin') {
+                error_log("Permission denied for role: " . $_SESSION['role']);
+                $this->json(['success' => false, 'message' => 'İcazə yoxdur']);
+                return;
+            }
+
+            // Get JSON data
+            $data = $this->getJsonInput();
+            
+            // If JSON data is empty, try POST data
+            if (empty($data)) {
+                $data = $_POST;
+                error_log("Using POST data: " . print_r($data, true));
+            }
+
+            if (empty($data['name'])) {
+                error_log("Category name is empty");
+                $this->json(['success' => false, 'message' => 'Kateqoriya adı tələb olunur']);
+                return;
+            }
+
+            $result = $this->columnModel->createCategory([
+                'name' => $data['name'],
+                'description' => $data['description'] ?? null
+            ]);
+
+            error_log("Create category result: " . ($result ? "true" : "false"));
+
+            if ($result) {
+                // Yeni kateqoriyaları qaytarırıq
+                $categories = $this->columnModel->getCategories();
+                error_log("New categories list: " . print_r($categories, true));
+                
+                $this->json([
+                    'success' => true, 
+                    'message' => 'Kateqoriya əlavə edildi',
+                    'data' => $categories['data']
+                ]);
+            } else {
+                $this->json(['success' => false, 'message' => 'Xəta baş verdi']);
+            }
+            return;
+        }
+
+        if ($_SERVER['REQUEST_METHOD'] === 'DELETE' && $id) {
+            if ($_SESSION['role'] !== 'super_admin') {
+                error_log("Permission denied for role: " . $_SESSION['role']);
+                $this->json(['success' => false, 'message' => 'İcazə yoxdur']);
+                return;
+            }
+
+            error_log("Deleting category with ID: " . $id);
+            $result = $this->columnModel->deleteCategory($id);
+            error_log("Delete category result: " . ($result ? "true" : "false"));
+
+            if ($result) {
+                // Yeni kateqoriyaları qaytarırıq
+                $categories = $this->columnModel->getCategories();
+                error_log("New categories list after delete: " . print_r($categories, true));
+                
+                $this->json([
+                    'success' => true, 
+                    'message' => 'Kateqoriya silindi',
+                    'data' => $categories['data']
+                ]);
+            } else {
+                $this->json(['success' => false, 'message' => 'Xəta baş verdi']);
+            }
+            return;
+        }
     }
 
     public function columns() {
+        if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+            $columns = $this->columnModel->getAll();
+            $this->json($columns);
+            return;
+        }
+
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($_SESSION['role'] !== 'superadmin') {
-                $this->json(['error' => 'Unauthorized']);
+                $this->json(['success' => false, 'message' => 'İcazə yoxdur']);
                 return;
             }
 
             $data = $this->getJsonInput();
             if (!isset($data['name']) || !isset($data['type'])) {
-                $this->json(['error' => 'Invalid data']);
+                $this->json(['success' => false, 'message' => 'Məlumatlar tam deyil']);
                 return;
             }
 
@@ -42,7 +141,8 @@ class ApiController extends Controller {
                 'name' => $data['name'],
                 'type' => $data['type'],
                 'deadline' => $data['deadline'] ?? null,
-                'is_active' => $data['is_active'] ?? true
+                'is_active' => $data['is_active'] ?? true,
+                'category_id' => $data['category_id'] ?? null
             ];
 
             $columnId = $this->columnModel->create($columnData);
@@ -50,27 +150,28 @@ class ApiController extends Controller {
                 $this->notifyNewColumn($data['name']);
                 $this->json(['success' => true, 'id' => $columnId]);
             } else {
-                $this->json(['error' => 'Failed to create column']);
+                $this->json(['success' => false, 'message' => 'Xəta baş verdi']);
             }
+            return;
         } elseif ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
             if ($_SESSION['role'] !== 'superadmin') {
-                $this->json(['error' => 'Unauthorized']);
+                $this->json(['success' => false, 'message' => 'İcazə yoxdur']);
                 return;
             }
 
             $id = $_GET['id'] ?? null;
             if (!$id) {
-                $this->json(['error' => 'ID is required']);
+                $this->json(['success' => false, 'message' => 'ID tələb olunur']);
                 return;
             }
 
             if ($this->columnModel->delete($id)) {
                 $this->json(['success' => true]);
             } else {
-                $this->json(['error' => 'Failed to delete column']);
+                $this->json(['success' => false, 'message' => 'Xəta baş verdi']);
             }
         } else {
-            $this->json(['error' => 'Method not allowed']);
+            $this->json(['success' => false, 'message' => 'Metod icazə verilmir']);
         }
     }
 

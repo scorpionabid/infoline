@@ -3,7 +3,7 @@
         <div class="container-fluid">
             <div class="row">
                 <div class="col-md-6">
-                    <span class="text-muted">© 2024 InfoLine. Bütün hüquqlar qorunur.</span>
+                    <span class="text-muted"> 2024 InfoLine. Bütün hüquqlar qorunur.</span>
                 </div>
                 <div class="col-md-6 text-end">
                     <span class="text-muted">Versiya: 1.0.0</span>
@@ -34,6 +34,6 @@
             }
         };
     </script>
-    <script src="/js/app.js"></script>
+    <script type="module" src="/js/app.js"></script>
 </body>
 </html>

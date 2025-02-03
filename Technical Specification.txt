@@ -1,0 +1,128 @@
+INFOLINE MƏKTƏB MƏLUMATLARI TOPLAMA SİSTEMİ
+TEXNİKİ TAPŞIRIQ
+
+Giriş
+Bu sənəd "InfoLine" adlı məktəb məlumatları toplama sisteminin texniki tapşırığını təsvir edir. Sistem məktəblərdən müxtəlif növ məlumatları toplamaq, emal etmək və hesabat hazırlamaq üçün nəzərdə tutulmuşdur. Sənəddə sistemin funksional və qeyri-funksional tələbləri, arxitekturası, istifadəçi interfeysinin əsas elementləri və digər texniki aspektlər öz əksini tapmışdır.
+
+1. Məqsəd
+InfoLine sisteminin əsas məqsədi təhsil müəssisələrindən zəruri məlumatların səmərəli şəkildə toplanmasını, emalını və hesabatların hazırlanmasını təmin etməkdir. Sistem məlumatların düzgünlüyünü, tamlığını və vaxtında təqdim olunmasını yoxlamaqla yanaşı, toplanan məlumatlar əsasında analitik hesabatların hazırlanmasına imkan verəcəkdir.
+
+2. İstifadəçilər və Rollar
+2.1 SuperAdmin
+- Bütün funksiyalar, o cümlədən istifadəçilərin və məlumat strukturunun idarə edilməsi
+- Hesabatların parametrlərinin müəyyən edilməsi və hesabatların alınması
+- Bildiriş və xatırlatmaların idarə edilməsi
+- Məktəb və sektor məlumatlarının idarə edilməsi
+
+2.2 Sektor Admini
+- Öz sektoruna aid məktəblər və istifadəçilərin idarə edilməsi
+- Sektora aid məlumatların monitorinqi və analizi
+- Sektor üzrə hesabatların alınması
+- Məktəblərdən daxil olan məlumatlara nəzarət
+
+2.3 Məktəb Admini
+- Öz məktəbinə aid məlumatların daxil edilməsi və redaktəsi
+- Daxil edilmiş məlumatların təsdiqi və göndərilməsi
+- Bildirişlərin və xatırlatmaların izlənməsi
+
+3. Funksional Tələblər
+3.1 Məlumatların Toplanması
+- Məlumatlar "Kateqoriyalar" və onların alt elementləri olan "Sütunlar" şəklində strukturlaşdırılacaq
+- Hər sütunun tipi (mətn, ədəd, tarix, siyahıdan seçim və s.) olacaq
+- Sütunlar üzrə məlumat daxil etmə qaydaları (məcburi/könüllü, format və s.) təyin ediləcək
+- Məlumat daxil etmə müddəti (deadline) təyin ediləcək və bu barədə istifadəçilərə bildirişlər göndəriləcək
+
+3.2 Məlumatların Emalı və Hesabatlar
+- Toplanmış məlumatlar üzrə müxtəlif kəsimlərdə (məktəb, sektor, region və s.) cədvəl və qrafik tipli hesabatlar hazırlanacaq
+- Hesabatların şablonları SuperAdmin tərəfindən təyin ediləcək
+- Hesabatlar avtomatik generasiya olunacaq və CSV, PDF kimi formatlarda yüklənə biləcək
+- Hesabatlar istifadəçi roluna uyğun olaraq filtrləmə və çeşidləmə imkanlarına malik olacaq
+
+3.3 Bildirişlər və Xatırlatmalar
+- Yeni kateqoriya və ya sütun yaradıldıqda müvafiq istifadəçilərə bildiriş göndəriləcək
+- Məlumat daxil etmə müddətinin sonuna yaxın (məsələn, 3 gün qalmış) xəbərdarlıq bildirişləri göndəriləcək
+- Müddət bitdikdən sonra məlumat daxil edilməmiş sütunlar üçün xatırlatma bildirişləri göndəriləcək
+- Bildiriş və xatırlatmaların göndərilmə qaydaları SuperAdmin tərəfindən tənzimlənəcək
+
+3.4 İstifadəçi İdarəetməsi
+- SuperAdmin yeni istifadəçi yarada, mövcud istifadəçinin məlumatlarını dəyişə və ya istifadəçini ləğv edə bilər
+- SuperAdmin istifadəçilərə müvafiq rollar (SuperAdmin, Sektor Admini, Məktəb Admini) təyin edə bilər
+- Sektor Admini yalnız öz sektoruna aid məktəblər üzrə Məktəb Adminlərini idarə edə bilər
+
+4. Qeyri-funksional tələblər
+4.1 Məhsuldarlıq
+- Sistem eyni anda 300-dən çox istifadəçiyə xidmət göstərə bilməlidir
+- Sistemin cavab vermə müddəti 3 saniyədən az olmalıdır
+- Məlumatlar serverdə emal olunarkən istifadəçi interfeysinin cavabdehliyi azalmamalıdır
+
+4.2 Təhlükəsizlik
+- İstifadəçi doğrulanması üçün login/parol və ya digər etibarlı üsullar istifadə ediləcək
+- Fərdi məlumatların qorunması üçün şifrələmə və digər zəruri tədbirlər görüləcək
+- Giriş hüquqları istifadəçi rollarına uyğun olaraq məhdudlaşdırılacaq
+- Bütün əməliyyatlar jurnallaşdırılacaq (audit log)
+- Sistemdə sensitivməlumatları olan cədvəllərin ehtiyat nüsxələri regulyar olaraq çıxarılacaq
+
+4.3 Etibarlılıq
+- Sistem il ərzində ən az 99.9% əlçatanlıq təmin etməlidir
+- Sistemin fasiləsiz işləməsi üçün klasterləşmə və ya digər həllər nəzərə alınmalıdır
+
+4.4 Genişlənə bilmə
+- Sistem məktəblərin və istifadəçilərin sayının artması ilə miqyaslana bilməlidir
+- Gələcəkdə yeni funksionallıq və ya hesabat növlərinin əlavə edilməsi nəzərə alınmalıdır
+
+4.5 İstifadə Rahatlığı
+- İnterfeys sadə və istifadəçi dostu olmalıdır
+- İstifadəçi arayüzü müasir veb-dizayn standartlarına cavab verməli və responsiv olmalıdır
+- Daxil edilən məlumatların doğruluğunun yoxlanılması üçün səhv bildirişləri və köməkçi mesajlar olmalıdır
+- Sistem Azərbaycan və rus dillərini dəstəkləməlidir
+
+5. Texniki Arxitektura
+5.1 Ümumi Baxış
+InfoLine sistemi müasir veb texnologiyaları və bulud xidmətləri əsasında qurulacaq. Sistem client-server arxitekturuna malik olacaq. İstifadəçilər veb-brauzer vasitəsilə serverlərdə yerləşdirilmiş veb-tətbiqetməyə müraciət edəcəklər. Sistemin əsas hissələri aşağıdakılardır:
+
+- Veb-tətbiqetmə (frontend)
+- Tətbiqetmə serveri (backend)
+- Verilənlər Bazası 
+- Hesabat Generatoru
+- Eksport Modulu
+- Bildiriş Modulu
+- İdentifikasiya və Avtorizasiya Modulu
+
+5.2 Texnologiyalar
+Backend:
+- Proqramlaşdırma dili: PHP 8.1
+- Tətbiqetmə Serveri: Nginx 1.18+
+- Freymvork: Laravel 9+
+- Verilənlər Bazası: MySQL 8+, Redis
+
+Frontend:
+- HTML5, CSS3, JavaScript (ES6+)
+- Kitabxanalar/Freymvorklar: Vue.js 3, Tailwind CSS və ya Bootstrap 5  
+
+Digər:
+- Bildirişlər: SMS, E-mail (SMTP)
+- Hesabatlar: Filtrləmə, Çeşidləmə, Qruplaşdırma, Aqreqasiya, Vizuallaşdırma (Charts.js və ya bənzər kitabxana)
+- Məlumat Mübadiləsi: JSON, CSV, PDF
+- Təhlükəsizlik: JWT (JSON Web Tokens), SSL şifrələnmə
+
+6. Sistemin İş Axını
+1. SuperAdmin tərəfindən istifadəçilər, sektorlar, kateqoriyalar, sütunlar yaradılır və parametrləri təyin edilir.
+2. Sektor Adminləri öz sektorları üzrə məktəbləri və onların adminlərini sistemə daxil edirlər.  
+3. Məktəb administratorları öz məktəbləri üzrə tələb olunan məlumatları uyğun kateqoriya və sütunlar üzrə daxil edirlər.
+4. Daxil edilən məlumatlar avtomatik olaraq yoxlanılır və təsdiqlənir.
+5. Müəyyən olunmuş vaxtda sistem toplanmışəlumatları emal edir və hesabatları hazırlayır.
+6. Sektor Adminləri və SuperAdmin öz səlahiyyətləri çərçivəsində hesabatları əldə edirlər.
+7. Məlumatların təqdim edilməsi müddəti yaxınlaşdıqda və bitdikdən sonra sistem bildiriş və xatırlatmaları göndərir.
+
+7. Gələcək İnkişaf
+- Sistemin mobil tətbiqetməsinin yaradılması
+- Məlumatların qrafik təsvirinin (dashboard) təkmilləşdirilməsi
+- Təhsil Nazirliyinin digər sistemləri ilə inteqrasiyanın qurulması
+- Maşın təlimi metodları ilə hesabatların intellektual analizinin aparılması
+- İstifadəçilərin autentifikasiyası üçün iki faktorlu doğrulama sisteminin tətbiqi
+- Məlumatların saxlanılması üçün NoSQL həllərinin (məsələn, MongoDB) nəzərə alınması
+
+8. Nəticə
+Bu sənəddə təsvir edilmiş texniki tapşırıq "InfoLine" sisteminin uğurlu və effektiv realizasiyası üçün əsas təşkil edir. Bununla belə, layihənin gedişində bəzi tələblər dəyişə, dəqiqləşə və ya əlavə oluna bilər. Bu dəyişikliklər layihə komandasının üzvləri arasında razılaşdırılmalı və sənədə əlavə edilməlidir.
+
+Layihənin icrası zamanı yüksək keyfiyyətin təmin edilməsi, müasir standart və metodologiyaların tətbiqi, həmçinin bütün maraqlı tərəflərin (stakeholders) məmnuniyyəti əsas prioritet olmalıdır.

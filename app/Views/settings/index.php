@@ -27,11 +27,33 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Sütunlar</h5>
-                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#columnModal">
-                        <i class="fas fa-plus"></i> Yeni Sütun
-                    </button>
+                    <div>
+                        <button type="button" class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#categoryModal">
+                            <i class="fas fa-folder-plus"></i> Yeni Kateqoriya
+                        </button>
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#columnModal">
+                            <i class="fas fa-plus"></i> Yeni Sütun
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
+                    <!-- Kateqoriyalar Cədvəli -->
+                    <div class="table-responsive mb-4">
+                        <table class="table table-hover" id="categoryTable">
+                            <thead>
+                                <tr>
+                                    <th>Kateqoriya Adı</th>
+                                    <th>Açıqlama</th>
+                                    <th>Əməliyyatlar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Kateqoriyalar JavaScript tərəfindən doldurulacaq -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Sütunlar Cədvəli -->
                     <div class="table-responsive">
                         <table class="table table-hover" id="columnsTable">
                             <thead>
@@ -44,26 +66,28 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach($columns as $column): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($column['name']); ?></td>
-                                    <td><?php echo htmlspecialchars($column['type']); ?></td>
-                                    <td><?php echo $column['deadline'] ? date('d.m.Y H:i', strtotime($column['deadline'])) : '-'; ?></td>
-                                    <td>
-                                        <span class="badge bg-<?php echo $column['is_active'] ? 'success' : 'danger'; ?>">
-                                            <?php echo $column['is_active'] ? 'Aktiv' : 'Deaktiv'; ?>
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <button class="btn btn-sm btn-primary edit-column" data-id="<?php echo $column['id']; ?>">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-danger delete-column" data-id="<?php echo $column['id']; ?>">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
+                                <?php if (isset($columns['data']) && is_array($columns['data'])): ?>
+                                    <?php foreach($columns['data'] as $column): ?>
+                                        <tr>
+                                            <td><?php echo htmlspecialchars($column['name']); ?></td>
+                                            <td><?php echo htmlspecialchars($column['type']); ?></td>
+                                            <td><?php echo $column['deadline'] ? date('Y-m-d H:i', strtotime($column['deadline'])) : ''; ?></td>
+                                            <td>
+                                                <span class="badge <?php echo $column['is_active'] ? 'bg-success' : 'bg-danger'; ?>">
+                                                    <?php echo $column['is_active'] ? 'Aktiv' : 'Deaktiv'; ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-primary edit-column" data-id="<?php echo $column['id']; ?>">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-danger delete-column" data-id="<?php echo $column['id']; ?>">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
@@ -76,9 +100,24 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Məktəblər</h5>
-                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#schoolModal">
-                        <i class="fas fa-plus"></i> Yeni Məktəb
-                    </button>
+                    <div>
+                        <!-- Import Form -->
+                        <form id="importSchoolsForm" class="d-inline-block me-2">
+                            <div class="input-group input-group-sm">
+                                <input type="file" class="form-control form-control-sm" name="file" accept=".xlsx,.xls">
+                                <button class="btn btn-outline-primary btn-sm" type="submit">
+                                    <i class="fas fa-file-import"></i> Import
+                                </button>
+                                <a href="/settings/downloadTemplate/schools" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-download"></i> Şablon
+                                </a>
+                            </div>
+                        </form>
+                        <!-- Add New School Button -->
+                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#schoolModal">
+                            <i class="fas fa-plus"></i> Yeni Məktəb
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -117,9 +156,24 @@
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">Məktəb Adminləri</h5>
-                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#adminModal">
-                        <i class="fas fa-plus"></i> Yeni Admin
-                    </button>
+                    <div>
+                        <!-- Import Form -->
+                        <form id="importAdminsForm" class="d-inline-block me-2">
+                            <div class="input-group input-group-sm">
+                                <input type="file" class="form-control form-control-sm" name="file" accept=".xlsx,.xls">
+                                <button class="btn btn-outline-primary btn-sm" type="submit">
+                                    <i class="fas fa-file-import"></i> Import
+                                </button>
+                                <a href="/settings/downloadTemplate/admins" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-download"></i> Şablon
+                                </a>
+                            </div>
+                        </form>
+                        <!-- Add New Admin Button -->
+                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#adminModal">
+                            <i class="fas fa-plus"></i> Yeni Admin
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -163,89 +217,85 @@
     </div>
 </div>
 
-<!-- Import Buttons -->
-<div class="row mb-4">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Məktəblərin İmportu</h5>
-                <p class="card-text">Excel faylından məktəbləri import edin.</p>
-                <form id="importSchoolsForm" enctype="multipart/form-data">
-                    <div class="mb-3">
-                        <label for="schoolsFile" class="form-label">Excel Faylı</label>
-                        <input type="file" class="form-control" id="schoolsFile" name="file" accept=".xlsx,.xls">
-                    </div>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-file-import"></i> İmport Et
-                    </button>
-                    <a href="/settings/downloadTemplate/schools" class="btn btn-outline-secondary">
-                        <i class="fas fa-download"></i> Şablon
-                    </a>
-                </form>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">Məktəb Adminlərinin İmportu</h5>
-                <p class="card-text">Excel faylından məktəb adminlərini import edin.</p>
-                <form id="importAdminsForm" enctype="multipart/form-data">
-                    <div class="mb-3">
-                        <label for="adminsFile" class="form-label">Excel Faylı</label>
-                        <input type="file" class="form-control" id="adminsFile" name="file" accept=".xlsx,.xls">
-                    </div>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-file-import"></i> İmport Et
-                    </button>
-                    <a href="/settings/downloadTemplate/admins" class="btn btn-outline-secondary">
-                        <i class="fas fa-download"></i> Şablon
-                    </a>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Sütun Modal -->
 <div class="modal fade" id="columnModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Sütun Əlavə Et</h5>
+                <h5 class="modal-title">Yeni Sütun</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div id="columnModalAlert"></div>
-                <form id="columnForm">
-                    <input type="hidden" name="id">
+                <form id="addColumnForm">
+                    <div class="mb-3">
+                        <label for="columnCategory" class="form-label">Kateqoriya</label>
+                        <select class="form-select" id="columnCategory" name="category_id">
+                            <option value="">Kateqoriya seçin</option>
+                        </select>
+                    </div>
                     <div class="mb-3">
                         <label for="columnName" class="form-label">Sütun Adı</label>
                         <input type="text" class="form-control" id="columnName" name="name" required>
                     </div>
                     <div class="mb-3">
                         <label for="columnType" class="form-label">Məlumat Tipi</label>
-                        <select class="form-control" id="columnType" name="type" required>
+                        <select class="form-select" id="columnType" name="type" required>
                             <option value="text">Mətn</option>
                             <option value="number">Rəqəm</option>
                             <option value="date">Tarix</option>
-                            <option value="file">Fayl</option>
+                            <option value="select">Seçim</option>
                         </select>
                     </div>
                     <div class="mb-3">
                         <label for="columnDeadline" class="form-label">Son Tarix</label>
                         <input type="datetime-local" class="form-control" id="columnDeadline" name="deadline">
                     </div>
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="columnIsActive" name="is_active" checked>
-                        <label class="form-check-label" for="columnIsActive">Aktiv</label>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="columnActive" name="is_active" checked>
+                            <label class="form-check-label" for="columnActive">
+                                Aktiv
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="optionsDiv" style="display: none;">
+                        <label for="options" class="form-label">Seçimlər (hər sətirdə bir seçim)</label>
+                        <textarea class="form-control" id="options" name="options" rows="3"></textarea>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bağla</button>
-                <button type="submit" form="columnForm" class="btn btn-primary">Yadda Saxla</button>
+                <button type="submit" form="addColumnForm" class="btn btn-primary">Yadda Saxla</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Kateqoriya Modal -->
+<div class="modal fade" id="categoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Kateqoriya Əlavə Et/Düzəlt</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="categoryForm" onsubmit="return false;">
+                    <input type="hidden" name="id" id="categoryId">
+                    <div class="mb-3">
+                        <label for="categoryName" class="form-label">Kateqoriya Adı</label>
+                        <input type="text" class="form-control" id="categoryName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="categoryDescription" class="form-label">Açıqlama</label>
+                        <textarea class="form-control" id="categoryDescription" name="description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bağla</button>
+                <button type="button" class="btn btn-primary" id="saveCategoryBtn">Yadda Saxla</button>
             </div>
         </div>
     </div>
@@ -370,9 +420,6 @@ $(document).ready(function() {
     };
 
     const tables = {
-        columnsTable: $('#columnsTable').DataTable({
-            language: dataTablesAz
-        }),
         schoolsTable: $('#schoolsTable').DataTable({
             language: dataTablesAz
         }),
@@ -470,7 +517,7 @@ $(document).ready(function() {
 
         if (confirm(`"${columnName}" sütununu silmək istədiyinizdən əminsiniz?`)) {
             $.ajax({
-                url: '/settings/deleteColumn',
+                url: '/infoline/settings/deleteColumn',
                 method: 'POST',
                 data: { id: id },
                 beforeSend: function() {
@@ -494,12 +541,12 @@ $(document).ready(function() {
     });
 
     // Sütun formu göndərilməsi
-    $('#columnForm').on('submit', function(e) {
+    $('#addColumnForm').on('submit', function(e) {
         e.preventDefault();
         const form = $(this);
         const submitBtn = form.find('button[type="submit"]');
         const id = form.find('input[name="id"]').val();
-        const url = id ? '/settings/updateColumn' : '/settings/addColumn';
+        const url = id ? '/infoline/settings/updateColumn' : '/infoline/settings/addColumn';
         
         // Form məlumatlarını yoxla
         const name = form.find('input[name="name"]').val().trim();
@@ -571,7 +618,7 @@ $(document).ready(function() {
         const btn = $(this);
 
         $.ajax({
-            url: '/settings/deleteSchool',
+            url: '/infoline/settings/deleteSchool',
             method: 'POST',
             data: { id: id },
             success: function(response) {
@@ -595,7 +642,7 @@ $(document).ready(function() {
         const form = $(this);
         const submitBtn = form.find('button[type="submit"]');
         const id = form.find('input[name="id"]').val();
-        const url = id ? '/settings/updateSchool' : '/settings/addSchool';
+        const url = id ? '/infoline/settings/updateSchool' : '/infoline/settings/addSchool';
 
         // Məktəb adını yoxla
         const name = form.find('input[name="name"]').val().trim();
@@ -681,7 +728,7 @@ $(document).ready(function() {
 
         if (confirm(`${adminName} adlı məktəb adminini silmək istədiyinizdən əminsiniz?`)) {
             $.ajax({
-                url: '/settings/deleteSchoolAdmin', // URL düzəldildi
+                url: '/infoline/settings/deleteSchoolAdmin', // URL düzəldildi
                 method: 'POST',
                 data: { id: id },
                 beforeSend: function() {
@@ -711,7 +758,7 @@ $(document).ready(function() {
         const form = $(this);
         const submitBtn = form.find('button[type="submit"]');
         const id = form.find('input[name="id"]').val();
-        const url = id ? '/settings/updateSchoolAdmin' : '/settings/addSchoolAdmin';
+        const url = id ? '/infoline/settings/updateSchoolAdmin' : '/infoline/settings/addSchoolAdmin';
 
         $.ajax({
             url: url,
@@ -768,7 +815,7 @@ $(document).ready(function() {
         var modal = $('#deleteModal');
         var id = modal.data('id');
         var type = modal.data('type');
-        var url = '/settings/delete' + type.charAt(0).toUpperCase() + type.slice(1);
+        var url = '/infoline/settings/delete' + type.charAt(0).toUpperCase() + type.slice(1);
         
         $.post(url, {id: id})
             .done(function(response) {
@@ -791,7 +838,7 @@ $(document).ready(function() {
            .html('<i class="fas fa-spinner fa-spin"></i> İmport edilir...');
         
         $.ajax({
-            url: '/settings/importSchools',
+            url: '/infoline/settings/importSchools',
             method: 'POST',
             data: formData,
             processData: false,
@@ -835,7 +882,7 @@ $(document).ready(function() {
            .html('<i class="fas fa-spinner fa-spin"></i> İmport edilir...');
         
         $.ajax({
-            url: '/settings/importSchoolAdmins',
+            url: '/infoline/settings/importSchoolAdmins',
             method: 'POST',
             data: formData,
             processData: false,
@@ -871,7 +918,7 @@ $(document).ready(function() {
     // Cədvəlləri yeniləmək üçün funksiya
     function refreshTable(tableId) {
         $.ajax({
-            url: '/settings',
+            url: '/infoline/settings',
             method: 'GET',
             success: function(response) {
                 // Əvvəlcə mövcud DataTable-ı destroy et
@@ -889,6 +936,175 @@ $(document).ready(function() {
                 });
             }
         });
+    }
+
+    // Kateqoriyaları yükləmə funksiyası
+    function loadCategories() {
+        console.log("Loading categories...");
+        
+        $.ajax({
+            url: '/infoline/settings/getCategories',
+            method: 'GET',
+            success: function(response) {
+                console.log("Categories response:", response);
+                
+                if (response.success) {
+                    const tbody = $('#categoryTable tbody');
+                    tbody.empty();
+                    
+                    response.data.forEach(function(category) {
+                        tbody.append(`
+                            <tr>
+                                <td>${escapeHtml(category.name)}</td>
+                                <td>${escapeHtml(category.description || '')}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-primary edit-category" data-id="${category.id}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger delete-category" data-id="${category.id}">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `);
+                    });
+                    
+                    // Event handler-ləri yenidən əlavə et
+                    initializeCategoryEventHandlers();
+                } else {
+                    showAlert('error', response.error || 'Kateqoriyalar yüklənmədi');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error("Ajax error:", error);
+                showAlert('error', 'Server xətası baş verdi');
+            }
+        });
+    }
+
+    // Kateqoriya event handler-lərini initialize et
+    function initializeCategoryEventHandlers() {
+        // Edit button click
+        $('.edit-category').on('click', function() {
+            const id = $(this).data('id');
+            const row = $(this).closest('tr');
+            const name = row.find('td:eq(0)').text();
+            const description = row.find('td:eq(1)').text();
+            
+            $('#categoryId').val(id);
+            $('#categoryName').val(name);
+            $('#categoryDescription').val(description);
+            
+            $('#categoryModal').modal('show');
+        });
+        
+        // Delete button click
+        $('.delete-category').on('click', function() {
+            if (!confirm('Bu kateqoriyanı silmək istədiyinizdən əminsiniz?')) {
+                return;
+            }
+            
+            const id = $(this).data('id');
+            const btn = $(this);
+            
+            $.ajax({
+                url: '/infoline/settings/deleteCategory',
+                method: 'POST',
+                data: { id: id },
+                success: function(response) {
+                    if (response.success) {
+                        showAlert('success', 'Kateqoriya uğurla silindi');
+                        btn.closest('tr').remove();
+                    } else {
+                        showAlert('error', response.error || 'Kateqoriya silinmədi');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Ajax error:", error);
+                    showAlert('error', 'Server xətası baş verdi');
+                }
+            });
+        });
+    }
+
+    // Kateqoriya modalı save button click
+    $('#saveCategoryBtn').on('click', function(e) {
+        e.preventDefault();
+        console.log("Save category button clicked");
+        
+        const form = $('#categoryForm');
+        const id = $('#categoryId').val();
+        const data = {
+            name: $('#categoryName').val().trim(),
+            description: $('#categoryDescription').val().trim()
+        };
+        
+        console.log("Form data:", data);
+        
+        if (!data.name) {
+            showAlert('error', 'Kateqoriya adı daxil edilməlidir');
+            return;
+        }
+        
+        const url = id ? '/infoline/settings/updateCategory' : '/infoline/settings/addCategory';
+        if (id) data.id = id;
+        
+        // Save button-u deaktiv et
+        const $btn = $(this);
+        $btn.prop('disabled', true);
+        
+        console.log("Sending request to:", url);
+        
+        $.ajax({
+            url: url,
+            method: 'POST',
+            data: data,
+            success: function(response) {
+                console.log("Server response:", response);
+                
+                if (response.success) {
+                    showAlert('success', response.message);
+                    $('#categoryModal').modal('hide');
+                    form[0].reset();
+                    loadCategories();
+                } else {
+                    showAlert('error', response.error || 'Əməliyyat uğursuz oldu');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error("Ajax error:", error);
+                console.error("Response:", xhr.responseText);
+                showAlert('error', 'Server xətası baş verdi');
+            },
+            complete: function() {
+                // Save button-u yenidən aktiv et
+                $btn.prop('disabled', false);
+            }
+        });
+    });
+
+    // Kateqoriya modalı açılanda formu təmizlə
+    $('#categoryModal').on('show.bs.modal', function(e) {
+        console.log("Category modal opening...");
+        
+        if (!$(e.relatedTarget).hasClass('edit-category')) {
+            console.log("Resetting category form...");
+            $('#categoryForm')[0].reset();
+            $('#categoryId').val('');
+        }
+    });
+
+    // Səhifə yükləndikdə kateqoriyaları yüklə
+    loadCategories();
+
+    // HTML escape helper function
+    function escapeHtml(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 });
 </script>

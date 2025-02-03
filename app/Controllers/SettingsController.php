@@ -6,6 +6,8 @@ use App\Models\Column;
 use App\Models\School;
 use App\Models\User;
 use App\Core\View;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class SettingsController extends Controller {
     private $columnModel;
@@ -26,15 +28,28 @@ class SettingsController extends Controller {
     }
 
     public function index() {
-        $columns = $this->columnModel->getAll();
-        $schools = $this->schoolModel->getAll();
-        $schoolAdmins = $this->userModel->getAllSchoolAdmins();
+        try {
+            $columns = $this->columnModel->getAll();
+            if (!$columns['success']) {
+                error_log("Error loading columns: " . ($columns['message'] ?? 'Unknown error'));
+            }
 
-        return View::render('settings/index', [
-            'columns' => $columns,
-            'schools' => $schools,
-            'schoolAdmins' => $schoolAdmins
-        ]);
+            $schools = $this->schoolModel->getAll();
+            $schoolAdmins = $this->userModel->getAllSchoolAdmins();
+
+            return View::render('settings/index', [
+                'columns' => $columns,
+                'schools' => $schools,
+                'schoolAdmins' => $schoolAdmins
+            ]);
+        } catch (\Exception $e) {
+            error_log("Error in SettingsController->index: " . $e->getMessage());
+            return View::render('settings/index', [
+                'columns' => ['success' => false, 'data' => [], 'message' => 'Sistem xətası baş verdi'],
+                'schools' => [],
+                'schoolAdmins' => []
+            ]);
+        }
     }
 
     // Sütun əməliyyatları
@@ -49,12 +64,22 @@ class SettingsController extends Controller {
                 'name' => htmlspecialchars(trim(filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING)), ENT_QUOTES, 'UTF-8'),
                 'type' => htmlspecialchars(trim(filter_input(INPUT_POST, 'type', FILTER_SANITIZE_STRING)), ENT_QUOTES, 'UTF-8'),
                 'deadline' => $this->formatDateTime(trim(filter_input(INPUT_POST, 'deadline'))),
-                'is_active' => filter_input(INPUT_POST, 'is_active', FILTER_VALIDATE_BOOLEAN) ?? true
+                'is_active' => filter_input(INPUT_POST, 'is_active', FILTER_VALIDATE_BOOLEAN) ?? true,
+                'category_id' => filter_input(INPUT_POST, 'category_id', FILTER_VALIDATE_INT)
             ];
 
             // Məcburi sahələri yoxla
             if (empty($data['name']) || empty($data['type'])) {
                 return $this->json(['error' => 'Ad və tip sahələri məcburidir']);
+            }
+
+            // Kateqoriya seçilməyibsə default kateqoriyanı təyin et
+            if (empty($data['category_id'])) {
+                $categoryModel = new \App\Models\Category();
+                $defaultCategory = $categoryModel->getDefaultCategory();
+                if ($defaultCategory) {
+                    $data['category_id'] = $defaultCategory['id'];
+                }
             }
 
             $result = $this->columnModel->create($data);
@@ -74,6 +99,32 @@ class SettingsController extends Controller {
         }
     }
 
+    public function getColumn() {
+        try {
+            if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+                return $this->json(['error' => 'Invalid request method']);
+            }
+
+            $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+            if (!$id) {
+                return $this->json(['error' => 'Düzgün sütun ID-si daxil edilməyib']);
+            }
+
+            $column = $this->columnModel->getById($id);
+            if (!$column) {
+                return $this->json(['error' => 'Sütun tapılmadı']);
+            }
+
+            return $this->json([
+                'success' => true,
+                'data' => $column
+            ]);
+        } catch (\Exception $e) {
+            error_log("Error in getColumn: " . $e->getMessage());
+            return $this->json(['error' => 'Sistem xətası baş verdi']);
+        }
+    }
+
     public function updateColumn() {
         try {
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -85,18 +136,13 @@ class SettingsController extends Controller {
                 return $this->json(['error' => 'Düzgün sütun ID-si daxil edilməyib']);
             }
 
-            // Sütunu yoxla
-            $column = $this->columnModel->getById($id);
-            if (!$column) {
-                return $this->json(['error' => 'Sütun tapılmadı']);
-            }
-
             // Məlumatları yoxla və təmizlə
             $data = [
-                'name' => htmlspecialchars(trim(filter_input(INPUT_POST, 'name', FILTER_SANITIZE_STRING)), ENT_QUOTES, 'UTF-8'),
-                'type' => htmlspecialchars(trim(filter_input(INPUT_POST, 'type', FILTER_SANITIZE_STRING)), ENT_QUOTES, 'UTF-8'),
-                'deadline' => $this->formatDateTime(trim(filter_input(INPUT_POST, 'deadline'))),
-                'is_active' => filter_input(INPUT_POST, 'is_active', FILTER_VALIDATE_BOOLEAN) ?? true
+                'name' => htmlspecialchars(trim($_POST['name']), ENT_QUOTES, 'UTF-8'),
+                'type' => htmlspecialchars(trim($_POST['type']), ENT_QUOTES, 'UTF-8'),
+                'deadline' => $this->formatDateTime(trim($_POST['deadline'])),
+                'is_active' => isset($_POST['is_active']) ? 1 : 0,
+                'updated_at' => date('Y-m-d H:i:s')
             ];
 
             // Məcburi sahələri yoxla
@@ -106,16 +152,50 @@ class SettingsController extends Controller {
 
             $result = $this->columnModel->update($id, $data);
             
-            if ($result['success']) {
+            if ($result) {
                 return $this->json([
                     'success' => true,
                     'message' => 'Sütun uğurla yeniləndi'
                 ]);
             } else {
-                return $this->json(['error' => $result['error']]);
+                return $this->json(['error' => 'Sütunu yeniləmək mümkün olmadı']);
             }
         } catch (\Exception $e) {
             error_log("Error in updateColumn: " . $e->getMessage());
+            return $this->json(['error' => 'Sistem xətası baş verdi']);
+        }
+    }
+
+    public function deleteColumn() {
+        try {
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                return $this->json(['error' => 'Invalid request method']);
+            }
+
+            $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+            if (!$id) {
+                return $this->json(['error' => 'Düzgün sütun ID-si daxil edilməyib']);
+            }
+
+            // Sütunu yoxlayırıq
+            $column = $this->columnModel->getById($id);
+            if (!$column) {
+                return $this->json(['error' => 'Sütun tapılmadı']);
+            }
+
+            // Sütunu silirik
+            $result = $this->columnModel->delete($id);
+            
+            if ($result) {
+                return $this->json([
+                    'success' => true,
+                    'message' => 'Sütun uğurla silindi'
+                ]);
+            } else {
+                return $this->json(['error' => 'Sütunu silmək mümkün olmadı']);
+            }
+        } catch (\Exception $e) {
+            error_log("Error in deleteColumn: " . $e->getMessage());
             return $this->json(['error' => 'Sistem xətası baş verdi']);
         }
     }
@@ -131,39 +211,6 @@ class SettingsController extends Controller {
         } catch (\Exception $e) {
             error_log("Error formatting date: " . $e->getMessage());
             return null;
-        }
-    }
-
-    public function deleteColumn() {
-        try {
-            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-                return $this->json(['error' => 'Invalid request method']);
-            }
-
-            $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
-            if (!$id) {
-                return $this->json(['error' => 'Düzgün sütun ID-si daxil edilməyib']);
-            }
-
-            // Sütunu yoxla
-            $column = $this->columnModel->getById($id);
-            if (!$column) {
-                return $this->json(['error' => 'Sütun tapılmadı']);
-            }
-
-            $result = $this->columnModel->delete($id);
-            
-            if ($result['success']) {
-                return $this->json([
-                    'success' => true,
-                    'message' => 'Sütun uğurla silindi'
-                ]);
-            } else {
-                return $this->json(['error' => $result['error']]);
-            }
-        } catch (\Exception $e) {
-            error_log("Error in deleteColumn: " . $e->getMessage());
-            return $this->json(['error' => 'Sistem xətası baş verdi']);
         }
     }
 
@@ -534,128 +581,347 @@ class SettingsController extends Controller {
         }
     }
 
-    private function createSchoolTemplate() {
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
+    public function downloadTemplate($type = null) {
+        error_log("\n==== Download Template Debug ====");
+        error_log("Type: " . $type);
+        error_log("Current Directory: " . __DIR__);
+        error_log("Template Directory: " . __DIR__ . "/../../public/templates");
         
-        // Set headers
-        $headers = [
-            'A1' => 'Məktəb Kodu',
-            'B1' => 'Məktəb Adı',
-            'C1' => 'Region',
-            'D1' => 'Ünvan',
-            'E1' => 'Telefon',
-            'F1' => 'Direktor'
-        ];
+        if (!in_array($type, ['schools', 'admins'])) {
+            error_log("Invalid template type: " . $type);
+            header("HTTP/1.0 404 Not Found");
+            exit('Template not found');
+        }
+
+        $templatePath = __DIR__ . "/../../public/templates/{$type}_template.xlsx";
+        error_log("Template path: " . $templatePath);
         
-        foreach ($headers as $cell => $value) {
-            $sheet->setCellValue($cell, $value);
-            $sheet->getStyle($cell)->getFont()->setBold(true);
+        // Template qovluğunu yoxla və yarat
+        $templateDir = dirname($templatePath);
+        if (!file_exists($templateDir)) {
+            error_log("Creating template directory: " . $templateDir);
+            mkdir($templateDir, 0777, true);
         }
         
-        // Add sample data
-        $sampleData = [
-            ['12345', 'Nümunə Məktəb', 'Bakı', 'Nümunə küç. 123', '012-345-67-89', 'Ad Soyad'],
-        ];
-        
-        $row = 2;
-        foreach ($sampleData as $data) {
-            $sheet->fromArray($data, null, 'A' . $row);
-            $row++;
+        // Əgər şablon faylı varsa, onu sil
+        if (file_exists($templatePath)) {
+            error_log("Deleting existing template file: " . $templatePath);
+            unlink($templatePath);
         }
         
-        // Auto-size columns
-        foreach (range('A', 'F') as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
-        }
-        
-        // Create templates directory if it doesn't exist
-        if (!file_exists(__DIR__ . '/../../public/templates')) {
-            mkdir(__DIR__ . '/../../public/templates', 0777, true);
-        }
-        
-        // Save file
-        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-        $writer->save(__DIR__ . '/../../public/templates/schools_template.xlsx');
-    }
-    
-    private function createAdminTemplate() {
-        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-        
-        // Set headers
-        $headers = [
-            'A1' => 'Məktəb Kodu',
-            'B1' => 'Admin Adı',
-            'C1' => 'Email',
-            'D1' => 'Şifrə (Boş buraxıla bilər, default: 123456)'
-        ];
-        
-        foreach ($headers as $cell => $value) {
-            $sheet->setCellValue($cell, $value);
-            $sheet->getStyle($cell)->getFont()->setBold(true);
-        }
-        
-        // Add sample data
-        $sampleData = [
-            ['12345', 'Admin Ad Soyad', 'admin@example.com', '123456'],
-        ];
-        
-        $row = 2;
-        foreach ($sampleData as $data) {
-            $sheet->fromArray($data, null, 'A' . $row);
-            $row++;
-        }
-        
-        // Auto-size columns
-        foreach (range('A', 'D') as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
-        }
-        
-        // Create templates directory if it doesn't exist
-        if (!file_exists(__DIR__ . '/../../public/templates')) {
-            mkdir(__DIR__ . '/../../public/templates', 0777, true);
-        }
-        
-        // Save file
-        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
-        $writer->save(__DIR__ . '/../../public/templates/admins_template.xlsx');
-    }
-    
-    public function downloadTemplate($type) {
+        // Yeni şablon faylı yarat
+        error_log("Creating new template file...");
         try {
-            $templatePath = __DIR__ . '/../../public/templates/';
-            $fileName = '';
+            if ($type === 'schools') {
+                $result = $this->createSchoolTemplate();
+                error_log("School template creation result: " . ($result ? "success" : "failed"));
+            } else {
+                $result = $this->createAdminTemplate();
+                error_log("Admin template creation result: " . ($result ? "success" : "failed"));
+            }
+        } catch (\Exception $e) {
+            error_log("Error creating template: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+            header("HTTP/1.0 500 Internal Server Error");
+            exit('Error creating template: ' . $e->getMessage());
+        }
+
+        if (!file_exists($templatePath)) {
+            error_log("Template file still does not exist after creation attempt");
+            header("HTTP/1.0 404 Not Found");
+            exit('Template file could not be created');
+        }
+
+        error_log("Sending template file: " . $templatePath);
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $type . '_template.xlsx"');
+        header('Content-Length: ' . filesize($templatePath));
+        header('Cache-Control: max-age=0');
+
+        readfile($templatePath);
+        exit;
+    }
+
+    private function createSchoolTemplate() {
+        error_log("Creating school template...");
+        try {
+            $spreadsheet = new Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
             
-            switch ($type) {
-                case 'schools':
-                    $fileName = 'schools_template.xlsx';
-                    if (!file_exists($templatePath . $fileName)) {
-                        $this->createSchoolTemplate();
-                    }
-                    break;
-                    
-                case 'admins':
-                    $fileName = 'admins_template.xlsx';
-                    if (!file_exists($templatePath . $fileName)) {
-                        $this->createAdminTemplate();
-                    }
-                    break;
-                    
-                default:
-                    throw new \Exception('Yanlış şablon növü');
+            // Set headers based on actual database structure
+            $headers = [
+                'A1' => 'Məktəb Adı',  // name field from schools table
+            ];
+            
+            foreach ($headers as $cell => $value) {
+                $sheet->setCellValue($cell, $value);
+                $sheet->getStyle($cell)->getFont()->setBold(true);
             }
             
-            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            header('Content-Disposition: attachment;filename="' . $fileName . '"');
-            header('Cache-Control: max-age=0');
+            // Add sample data
+            $sampleData = [
+                ['Nümunə Məktəb'],  // Example school name
+            ];
             
-            readfile($templatePath . $fileName);
-            exit;
+            $row = 2;
+            foreach ($sampleData as $data) {
+                $sheet->fromArray($data, null, 'A' . $row);
+                $row++;
+            }
             
+            // Auto-size columns
+            foreach (range('A', 'A') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+            
+            // Add note about required fields
+            $sheet->setCellValue('A4', 'Qeyd: Məktəb adı mütləq doldurulmalıdır');
+            $sheet->getStyle('A4')->getFont()->setItalic(true);
+            
+            $templatePath = __DIR__ . '/../../public/templates/schools_template.xlsx';
+            error_log("Saving school template to: " . $templatePath);
+            
+            $writer = new Xlsx($spreadsheet);
+            $writer->save($templatePath);
+            
+            error_log("School template created successfully");
+            return true;
         } catch (\Exception $e) {
-            header('HTTP/1.1 500 Internal Server Error');
-            echo json_encode(['error' => $e->getMessage()]);
+            error_log("Error in createSchoolTemplate: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+            throw $e;
+        }
+    }
+
+    private function createAdminTemplate() {
+        error_log("Creating admin template...");
+        try {
+            $spreadsheet = new Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            
+            // Set headers based on actual database structure
+            $headers = [
+                'A1' => 'Məktəb Kodu',      // For linking with school
+                'B1' => 'İstifadəçi adı',   // username field
+                'C1' => 'Ad',               // name field
+                'D1' => 'Şifrə',            // password field
+            ];
+            
+            foreach ($headers as $cell => $value) {
+                $sheet->setCellValue($cell, $value);
+                $sheet->getStyle($cell)->getFont()->setBold(true);
+            }
+            
+            // Add sample data
+            $sampleData = [
+                ['SCH001', 'admin_user', 'Admin Ad Soyad', '123456'],
+            ];
+            
+            $row = 2;
+            foreach ($sampleData as $data) {
+                $sheet->fromArray($data, null, 'A' . $row);
+                $row++;
+            }
+            
+            // Auto-size columns
+            foreach (range('A', 'D') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+            
+            // Add notes about required fields and defaults
+            $sheet->setCellValue('A4', 'Qeydlər:');
+            $sheet->setCellValue('A5', '1. Məktəb kodu mövcud məktəbə aid olmalıdır (məs: SCH001)');
+            $sheet->setCellValue('A6', '2. İstifadəçi adı unikal olmalıdır');
+            $sheet->setCellValue('A7', '3. Şifrə boş buraxılarsa, default olaraq "123456" təyin olunacaq');
+            $sheet->getStyle('A4:A7')->getFont()->setItalic(true);
+            
+            $templatePath = __DIR__ . '/../../public/templates/admins_template.xlsx';
+            error_log("Saving admin template to: " . $templatePath);
+            
+            $writer = new Xlsx($spreadsheet);
+            $writer->save($templatePath);
+            
+            error_log("Admin template created successfully");
+            return true;
+        } catch (\Exception $e) {
+            error_log("Error in createAdminTemplate: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+            throw $e;
+        }
+    }
+
+    // Kateqoriya əməliyyatları
+    public function getCategories() {
+        try {
+            $categoryModel = new \App\Models\Category();
+            $categories = $categoryModel->getAll();
+            
+            return $this->json([
+                'success' => true,
+                'data' => $categories
+            ]);
+        } catch (\Exception $e) {
+            error_log("Error in getCategories: " . $e->getMessage());
+            return $this->json([
+                'success' => false,
+                'error' => 'Kateqoriyalar yüklənmədi: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    public function addCategory() {
+        try {
+            error_log("addCategory: Starting...");
+            error_log("POST data: " . print_r($_POST, true));
+            
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                return $this->json(['error' => 'Invalid request method']);
+            }
+
+            $name = htmlspecialchars(trim($_POST['name'] ?? ''), ENT_QUOTES, 'UTF-8');
+            $description = htmlspecialchars(trim($_POST['description'] ?? ''), ENT_QUOTES, 'UTF-8');
+
+            error_log("Sanitized data - name: $name, description: $description");
+
+            if (empty($name)) {
+                error_log("Error: Category name is empty");
+                return $this->json(['error' => 'Kateqoriya adı daxil edilməlidir']);
+            }
+
+            $categoryModel = new \App\Models\Category();
+            
+            // Eyni adlı kateqoriyanın varlığını yoxla
+            $existing = $categoryModel->findByName($name);
+            if ($existing) {
+                error_log("Error: Category with name '$name' already exists");
+                return $this->json(['error' => 'Bu adda kateqoriya artıq mövcuddur']);
+            }
+
+            $data = [
+                'name' => $name,
+                'description' => $description,
+                'is_default' => 0,
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
+
+            error_log("Attempting to create category with data: " . print_r($data, true));
+
+            $result = $categoryModel->create($data);
+            
+            if ($result) {
+                error_log("Category created successfully with ID: $result");
+                return $this->json([
+                    'success' => true,
+                    'message' => 'Kateqoriya uğurla əlavə edildi',
+                    'id' => $result
+                ]);
+            } else {
+                error_log("Failed to create category");
+                return $this->json(['error' => 'Kateqoriya əlavə edilmədi']);
+            }
+        } catch (\Exception $e) {
+            error_log("Error in addCategory: " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
+            return $this->json(['error' => 'Sistem xətası baş verdi']);
+        }
+    }
+
+    public function updateCategory() {
+        try {
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                return $this->json(['error' => 'Invalid request method']);
+            }
+
+            $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+            if (!$id) {
+                return $this->json(['error' => 'Düzgün kateqoriya ID-si daxil edilməyib']);
+            }
+
+            $name = htmlspecialchars(trim($_POST['name'] ?? ''), ENT_QUOTES, 'UTF-8');
+            $description = htmlspecialchars(trim($_POST['description'] ?? ''), ENT_QUOTES, 'UTF-8');
+
+            if (empty($name)) {
+                return $this->json(['error' => 'Kateqoriya adı daxil edilməlidir']);
+            }
+
+            $categoryModel = new \App\Models\Category();
+            
+            // Kateqoriyanı yoxla
+            $category = $categoryModel->getById($id);
+            if (!$category) {
+                return $this->json(['error' => 'Kateqoriya tapılmadı']);
+            }
+
+            // Eyni adlı başqa kateqoriyanın varlığını yoxla
+            $existing = $categoryModel->findByName($name);
+            if ($existing && $existing['id'] != $id) {
+                return $this->json(['error' => 'Bu adda kateqoriya artıq mövcuddur']);
+            }
+
+            $data = [
+                'name' => $name,
+                'description' => $description,
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
+
+            $result = $categoryModel->update($id, $data);
+            
+            if ($result) {
+                return $this->json([
+                    'success' => true,
+                    'message' => 'Kateqoriya uğurla yeniləndi'
+                ]);
+            } else {
+                return $this->json(['error' => 'Kateqoriya yenilənmədi']);
+            }
+        } catch (\Exception $e) {
+            error_log("Error in updateCategory: " . $e->getMessage());
+            return $this->json(['error' => 'Sistem xətası baş verdi']);
+        }
+    }
+
+    public function deleteCategory() {
+        try {
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                return $this->json(['error' => 'Invalid request method']);
+            }
+
+            $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+            if (!$id) {
+                return $this->json(['error' => 'Düzgün kateqoriya ID-si daxil edilməyib']);
+            }
+
+            $categoryModel = new \App\Models\Category();
+            
+            // Kateqoriyanı yoxla
+            $category = $categoryModel->getById($id);
+            if (!$category) {
+                return $this->json(['error' => 'Kateqoriya tapılmadı']);
+            }
+
+            // Default kateqoriyanı silməyə icazə vermə
+            if ($category['is_default']) {
+                return $this->json(['error' => 'Default kateqoriyanı silmək olmaz']);
+            }
+
+            // Kateqoriyaya aid sütunları yoxla
+            $columnModel = new Column();
+            $columns = $columnModel->getAllByCategoryId($id);
+            if (!empty($columns['data'])) {
+                return $this->json(['error' => 'Bu kateqoriyaya aid sütunlar var. Əvvəlcə onları silməlisiniz.']);
+            }
+
+            $result = $categoryModel->delete($id);
+            
+            if ($result) {
+                return $this->json([
+                    'success' => true,
+                    'message' => 'Kateqoriya uğurla silindi'
+                ]);
+            } else {
+                return $this->json(['error' => 'Kateqoriya silinmədi']);
+            }
+        } catch (\Exception $e) {
+            error_log("Error in deleteCategory: " . $e->getMessage());
+            return $this->json(['error' => 'Sistem xətası baş verdi']);
         }
     }
 }

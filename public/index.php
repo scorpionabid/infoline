@@ -1,6 +1,8 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/../storage/logs/app.log');
 
 session_start();
 
@@ -20,6 +22,7 @@ $router->add('logout', ['controller' => 'auth', 'action' => 'logout']);
 $router->add('dashboard', ['controller' => 'dashboard', 'action' => 'index']);
 $router->add('dashboard/', ['controller' => 'dashboard', 'action' => 'index']); 
 $router->add('dashboard/export', ['controller' => 'dashboard', 'action' => 'export']);
+$router->add('dashboard/getData', ['controller' => 'dashboard', 'action' => 'getData']);
 $router->add('columns', ['controller' => 'columns', 'action' => 'index']);
 $router->add('schools', ['controller' => 'schools', 'action' => 'index']);
 $router->add('settings', ['controller' => 'settings', 'action' => 'index']);
@@ -30,9 +33,18 @@ $router->add('settings', ['controller' => 'settings', 'action' => 'index']);
 $router->add('settings/importSchools', ['controller' => 'settings', 'action' => 'importSchools']);
 $router->add('settings/importSchoolAdmins', ['controller' => 'settings', 'action' => 'importSchoolAdmins']);
 $router->add('settings/downloadTemplate/([^/]+)', ['controller' => 'settings', 'action' => 'downloadTemplate']);
+
+// Category routes
+$router->add('settings/getCategories', ['controller' => 'settings', 'action' => 'getCategories']);
+$router->add('settings/addCategory', ['controller' => 'settings', 'action' => 'addCategory']);
+$router->add('settings/updateCategory', ['controller' => 'settings', 'action' => 'updateCategory']);
+$router->add('settings/deleteCategory', ['controller' => 'settings', 'action' => 'deleteCategory']);
+
+// Column routes
 $router->add('settings/addColumn', ['controller' => 'settings', 'action' => 'addColumn']);
 $router->add('settings/updateColumn', ['controller' => 'settings', 'action' => 'updateColumn']);
 $router->add('settings/deleteColumn', ['controller' => 'settings', 'action' => 'deleteColumn']);
+
 $router->add('settings/addSchool', ['controller' => 'settings', 'action' => 'addSchool']);
 $router->add('settings/updateSchool', ['controller' => 'settings', 'action' => 'updateSchool']);
 $router->add('settings/deleteSchool', ['controller' => 'settings', 'action' => 'deleteSchool']);
@@ -41,6 +53,9 @@ $router->add('settings/updateSchoolAdmin', ['controller' => 'settings', 'action'
 $router->add('settings/deleteSchoolAdmin', ['controller' => 'settings', 'action' => 'deleteSchoolAdmin']);
 
 // API routes
+$router->add('api/categories', ['controller' => 'category', 'action' => 'index']);
+$router->add('api/categories/create', ['controller' => 'category', 'action' => 'create']);
+$router->add('api/categories/([0-9]+)', ['controller' => 'category', 'action' => 'delete']);
 $router->add('api/columns', ['controller' => 'api', 'action' => 'columns']);
 $router->add('api/data', ['controller' => 'api', 'action' => 'data']);
 $router->add('api/data/update', ['controller' => 'dashboard', 'action' => 'updateData']);
