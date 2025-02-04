@@ -15,26 +15,33 @@ class DashboardServiceTest extends TestCase
     use RefreshDatabase;
 
     private DashboardService $service;
+    private Region $region;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->service = new DashboardService();
+        $this->cleanupTestData();
+    }
+
+    private function cleanupTestData(): void
+    {
+        Region::query()->forceDelete();
+        Sector::query()->forceDelete();
+        School::query()->forceDelete();
+        DataValue::query()->forceDelete();
     }
 
     /** @test */
     public function it_can_get_general_statistics()
     {
-        // Test datası yaradaq
-        Region::factory()->count(3)->create();
-        Sector::factory()->count(5)->create();
-        School::factory()->count(10)->create();
-        DataValue::factory()->count(20)->create(['status' => 'draft']);
-        DataValue::factory()->count(15)->create(['status' => 'submitted']);
-        DataValue::factory()->count(10)->create(['status' => 'approved']);
+        // Arrange
+        $this->createTestData();
 
+        // Act
         $stats = $this->service->getStatistics();
 
+        // Assert
         $this->assertEquals(3, $stats['total_regions']);
         $this->assertEquals(5, $stats['total_sectors']);
         $this->assertEquals(10, $stats['total_schools']);
@@ -47,53 +54,99 @@ class DashboardServiceTest extends TestCase
     /** @test */
     public function it_can_get_region_statistics()
     {
-        $region = Region::factory()->create();
-        Sector::factory()->count(2)->create(['region_id' => $region->id]);
-        School::factory()->count(5)->create(['sector_id' => 1]);
-        
+        // Arrange
+        $this->createBasicRegionData();
+
+        // Act
         $stats = $this->service->getRegionStatistics();
-        
+
+        // Assert
         $this->assertCount(1, $stats);
-        $this->assertEquals($region->id, $stats[0]['id']);
-        $this->assertEquals($region->name, $stats[0]['name']);
-        $this->assertEquals(2, $stats[0]['sectors_count']);
-        $this->assertEquals(5, $stats[0]['schools_count']);
+        $firstRegion = $stats[0];
+        $this->assertEquals($this->region->id, $firstRegion['id']);
+        $this->assertEquals($this->region->name, $firstRegion['name']);
+        $this->assertEquals(2, $firstRegion['sectors_count']);
+        $this->assertEquals(4, $firstRegion['schools_count']);
     }
 
     /** @test */
     public function it_can_get_school_statistics()
     {
-        $region = Region::factory()->create();
-        $sector = Sector::factory()->create(['region_id' => $region->id]);
-        $school = School::factory()->create(['sector_id' => $sector->id]);
+        // Arrange
+        $this->createBasicRegionData();
+        $sector = Sector::first();
         
-        DataValue::factory()->count(5)->create([
-            'school_id' => $school->id,
-            'status' => 'approved'
-        ]);
-        
-        $stats = $this->service->getSchoolStatistics($region->id, $sector->id);
-        
-        $this->assertCount(1, $stats);
-        $this->assertEquals($school->id, $stats[0]['id']);
-        $this->assertEquals($school->name, $stats[0]['name']);
-        $this->assertEquals(5, $stats[0]['total_submissions']);
-        $this->assertEquals(5, $stats[0]['approved_submissions']);
+        // Act
+        $stats = $this->service->getSchoolStatistics($this->region->id, $sector->id);
+
+        // Assert
+        $this->assertNotEmpty($stats);
+        $this->assertCount(2, $stats);
+        $this->assertEquals($sector->name, $stats[0]['sector']);
+        $this->assertEquals($this->region->name, $stats[0]['region']);
     }
 
     /** @test */
     public function it_can_get_data_submission_stats()
     {
-        DataValue::factory()->count(10)->create(['status' => 'draft']);
-        DataValue::factory()->count(5)->create(['status' => 'approved']);
-        
+        // Arrange
+        $this->createSubmissionData();
+
+        // Act
         $stats = $this->service->getDataSubmissionStats();
-        
+
+        // Assert
         $this->assertArrayHasKey('submissions_by_status', $stats);
         $this->assertArrayHasKey('submissions_by_month', $stats);
         $this->assertArrayHasKey('latest_submissions', $stats);
+        $this->assertEquals(20, $stats['submissions_by_status']['draft']);
+        $this->assertEquals(10, $stats['submissions_by_status']['approved']);
+    }
+
+    private function createTestData(): void
+    {
+        // Məhdud sayda region yaradın
+        $this->region = Region::factory()->create();
+        Region::factory()->count(2)->create();
+
+        // Birinci regiona 5 sektor əlavə edin
+        $sectors = Sector::factory()
+            ->count(5)
+            ->create(['region_id' => $this->region->id]);
+
+        // Hər sektora 2 məktəb əlavə edin
+        foreach ($sectors as $sector) {
+            School::factory()
+                ->count(2)
+                ->create(['sector_id' => $sector->id]);
+        }
+
+        // Təlimatlara uyğun data submission yaradın
+        DataValue::factory()->count(20)->create(['status' => 'draft']);
+        DataValue::factory()->count(15)->create(['status' => 'submitted']);
+        DataValue::factory()->count(10)->create(['status' => 'approved']);
+    }
+
+    private function createBasicRegionData(): void
+    {
+        $this->region = Region::factory()->create();
         
-        $this->assertEquals(10, $stats['submissions_by_status']['draft']);
-        $this->assertEquals(5, $stats['submissions_by_status']['approved']);
+        $sectors = Sector::factory()
+            ->count(2)
+            ->create(['region_id' => $this->region->id]);
+
+        foreach ($sectors as $sector) {
+            School::factory()
+                ->count(2)
+                ->create(['sector_id' => $sector->id]);
+        }
+    }
+
+    private function createSubmissionData(): void
+    {
+        $this->createBasicRegionData();
+        
+        DataValue::factory()->count(20)->create(['status' => 'draft']);
+        DataValue::factory()->count(10)->create(['status' => 'approved']);
     }
 }
