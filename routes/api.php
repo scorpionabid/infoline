@@ -49,6 +49,7 @@ Route::prefix('v1')->group(function () {
         Route::apiResource('categories', CategoryController::class);
 
         // DataValue routes
+        Route::post('data-values/bulk-update', [DataValueController::class, 'bulkUpdate']);
         Route::apiResource('data-values', DataValueController::class);
         Route::post('data-values/{dataValue}/submit', [DataValueController::class, 'submit']);
         Route::post('data-values/{dataValue}/approve', [DataValueController::class, 'approve']);
@@ -59,6 +60,7 @@ Route::prefix('v1')->group(function () {
             Route::get('excel/export', 'export');
         });
 
+        // Import routes
         Route::controller(ImportController::class)->group(function () {
             Route::post('excel/import', 'import');
         });

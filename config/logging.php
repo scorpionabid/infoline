@@ -26,11 +26,5 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => 14,
         ],
-
-        'testing' => [
-            'driver' => 'daily',
-            'path' => storage_path('logs/testing.log'),
-            'level' => 'debug',
-        ],
     ],
 ];

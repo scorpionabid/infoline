@@ -5,15 +5,30 @@ namespace App\Http\Controllers\API\V1;
 use App\Domain\Entities\DataValue;
 use App\Http\Controllers\API\V1\BaseController;
 use App\Http\Requests\API\V1\DataValue\StoreDataValueRequest;
+use App\Http\Requests\API\V1\DataValue\BulkUpdateRequest;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class DataValueController extends BaseController
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $dataValues = DataValue::with(['school', 'column'])
-            ->latest()
-            ->get();
+        $query = DataValue::with(['school', 'column'])
+            ->latest();
+
+        // Kateqoriyaya görə filter
+        if ($request->has('category_id')) {
+            $query->whereHas('column', function($q) use ($request) {
+                $q->where('category_id', $request->category_id);
+            });
+        }
+
+        // Məktəbə görə filter
+        if ($request->has('school_id')) {
+            $query->where('school_id', $request->school_id);
+        }
+
+        $dataValues = $query->get();
         
         return $this->sendResponse($dataValues, 'Məlumatlar uğurla əldə edildi');
     }
@@ -75,6 +90,42 @@ class DataValueController extends BaseController
             return $this->sendResponse($dataValue, 'Məlumat uğurla rədd edildi');
         } catch (\InvalidArgumentException $e) {
             return $this->sendError($e->getMessage(), [], 422);
+        }
+    }
+
+    public function bulkUpdate(BulkUpdateRequest $request): JsonResponse
+    {
+        try {
+            \DB::beginTransaction();
+
+            $updates = collect($request->updates)->map(function ($item) use ($request) {
+                return DataValue::updateOrCreate(
+                    [
+                        'school_id' => $request->school_id,
+                        'column_id' => $item['column_id']
+                    ],
+                    [
+                        'value' => $item['value'],
+                        'updated_by' => auth()->id(),
+                        'status' => 'draft'
+                    ]
+                );
+            });
+
+            \DB::commit();
+
+            return $this->sendResponse(
+                $updates, 
+                'Məlumatlar uğurla yeniləndi'
+            );
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            
+            return $this->sendError(
+                'Məlumatları yeniləyərkən xəta baş verdi', 
+                [$e->getMessage()], 
+                500
+            );
         }
     }
 }

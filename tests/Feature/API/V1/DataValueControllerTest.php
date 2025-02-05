@@ -57,6 +57,29 @@ class DataValueControllerTest extends TestCase
     }
 
     /** @test */
+    public function user_can_filter_data_values_by_category_and_school()
+    {
+        $dataValue = DataValue::factory()->create([
+            'school_id' => $this->school->id,
+            'column_id' => $this->column->id
+        ]);
+
+        $response = $this->getJson("/api/v1/data-values?category_id={$this->column->category_id}&school_id={$this->school->id}");
+
+        $response->assertOk()
+                ->assertJson([
+                    'success' => true,
+                    'data' => [
+                        [
+                            'id' => $dataValue->id,
+                            'school_id' => $this->school->id,
+                            'column_id' => $this->column->id
+                        ]
+                    ]
+                ]);
+    }
+
+    /** @test */
     public function user_can_create_data_value()
     {
         $data = [
@@ -159,4 +182,55 @@ class DataValueControllerTest extends TestCase
                     ]
                 ]);
     }
+
+    /** @test */
+    public function test_user_can_bulk_update_data_values()
+    {
+        $this->withoutExceptionHandling();
+
+        $school = School::factory()->create();
+        $column = Column::factory()->create([
+            'data_type' => 'number', // 'type' əvəzinə 'data_type' istifadə edin
+            'name' => 'test_column'
+        ]);
+
+        $updates = [
+            'school_id' => $school->id,
+            'updates' => [
+                [
+                    'column_id' => $column->id,
+                    'value' => '100' // Sütun tipinə uyğun dəyər
+                ]
+            ]
+        ];
+
+        $response = $this->postJson('/api/v1/data-values/bulk-update', $updates);
+        $response->assertOk()
+            ->assertJson([
+                'success' => true
+            ]);
+    }
+
+/** @test */
+    public function it_validates_bulk_update_values_according_to_column_types()
+    {
+        $numberColumn = Column::factory()->create([
+            'data_type' => 'number'
+        ]);
+
+        $updates = [
+            'school_id' => $this->school->id,
+            'updates' => [
+                [
+                    'column_id' => $numberColumn->id,
+                    'value' => 'not a number' // Yanlış tip
+                ]
+            ]
+        ];
+
+        $response = $this->postJson('/api/v1/data-values/bulk-update', $updates);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['updates.0.value']);
+}
 }

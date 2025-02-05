@@ -1,30 +1,33 @@
 <?php
 
-use Illuminate\Foundation\Application;
-use Illuminate\Contracts\Http\Kernel as HttpKernel;
-use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
-use Illuminate\Contracts\Debug\ExceptionHandler;
-use App\Http\Kernel;
-use App\Console\Kernel as ConsoleKernelAlias;
-use App\Exceptions\Handler as ExceptionHandlerAlias;
+/*
+|--------------------------------------------------------------------------
+| Create The Application
+|--------------------------------------------------------------------------
+*/
 
-$app = new Application(
+$app = new Illuminate\Foundation\Application(
     $_ENV['APP_BASE_PATH'] ?? dirname(__DIR__)
 );
 
+// Error reporting tənzimləmələri
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
+ini_set('display_errors', 'off');
+
+// Standart servislərin qeydiyyatı
 $app->singleton(
-    HttpKernel::class,
-    Kernel::class
+    Illuminate\Contracts\Http\Kernel::class,
+    App\Http\Kernel::class
 );
 
 $app->singleton(
-    ConsoleKernel::class,
-    ConsoleKernelAlias::class
+    Illuminate\Contracts\Console\Kernel::class,
+    App\Console\Kernel::class
 );
 
 $app->singleton(
-    ExceptionHandler::class,
-    ExceptionHandlerAlias::class
+    Illuminate\Contracts\Debug\ExceptionHandler::class,
+    App\Exceptions\Handler::class
 );
 
 return $app;
