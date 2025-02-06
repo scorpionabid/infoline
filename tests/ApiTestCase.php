@@ -36,12 +36,20 @@ abstract class ApiTestCase extends TestCase
 
     protected function createSuperAdmin(): User
     {
+        $password = 'password';
+        $hashedPassword = bcrypt($password);
+
+        \Log::info('Test login attempt', [
+            'raw_password' => $password,
+            'hashed_password' => $hashedPassword
+        ]);
+
         return User::create([
             'first_name' => 'Super',
             'last_name' => 'Admin',
             'email' => 'superadmin@edu.gov.az',
             'username' => 'superadmin',
-            'password' => bcrypt('password'),
+            'password' => $password,
             'utis_code' => '1000001',
             'user_type' => UserType::SUPER_ADMIN->value,
             'region_id' => null,

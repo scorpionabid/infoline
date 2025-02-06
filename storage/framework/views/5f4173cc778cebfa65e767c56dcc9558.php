@@ -92,7 +92,13 @@
     
     <!-- Custom JS -->
     <script src="<?php echo e(asset('js/app.js')); ?>"></script>
-    
+    <script>
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
+    </script>
     <?php echo $__env->yieldPushContent('scripts'); ?>
 </body>
 </html><?php /**PATH /Users/home/Library/CloudStorage/OneDrive-BureauonICTforEducation,MinistryofEducation/infoline_app/resources/views/layouts/app.blade.php ENDPATH**/ ?>

@@ -1,26 +1,41 @@
-import { createApp } from "vue";
-import { createStore } from "vuex";
-import { router } from "./router";
-import axios from "axios";
-import App from "./App.vue";
-import auth from "./store/modules/auth";
+// Bootstrap
+import "./bootstrap";
 
-// Axios konfiqurasiyası
-axios.defaults.baseURL = "/api";
-axios.defaults.headers.common["Accept"] = "application/json";
+// Auth components
+import "./auth/login";
+import "./auth/forgot";
 
-// Token varsa əlavə et
-const token = localStorage.getItem("token");
-if (token) {
-  axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-}
-
-// Store yaradılması
-const store = createStore({
-  modules: {
-    auth,
+// Global app configuration
+window.APP = {
+  locale: "az",
+  messages: {
+    errors: {
+      default: "Xəta baş verdi",
+      server: "Server xətası baş verdi",
+      validation: "Məlumatları düzgün daxil edin",
+      network: "Şəbəkə xətası",
+    },
+    alerts: {
+      loading: "Yüklənir...",
+      processing: "Əməliyyat icra olunur...",
+      success: "Əməliyyat uğurla tamamlandı",
+      warning: "Diqqət",
+      info: "Məlumat",
+    },
   },
-});
+};
 
-// Root komponentin yaradılması
-createApp(App).use(router).use(store).mount("#app");
+// Global error handler
+window.onerror = function (msg, url, line) {
+  console.error("JS Error:", msg, "Line:", line);
+};
+
+// DataTable initialization
+$(document).ready(function () {
+  // DataTable initialization
+  new DataTable(dataTable, {
+    language: {
+      url: "//cdn.datatables.net/plug-ins/1.13.4/i18n/az.json",
+    },
+  });
+});

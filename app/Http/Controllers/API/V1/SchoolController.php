@@ -123,4 +123,22 @@ class SchoolController extends BaseController
             return $this->sendError('Error retrieving school admins', [$e->getMessage()], 500);
         }
     }
+    public function search(Request $request)
+    {
+        $query = $request->get('query');
+    
+        return School::where('name', 'like', "%{$query}%")
+            ->with(['admin' => function($q) {
+                $q->select('id', 'school_id', 'username');
+            }])
+            ->limit(5)
+            ->get(['id', 'name'])
+            ->map(function($school) {
+                return [
+                    'id' => $school->id,
+                    'name' => $school->name,
+                    'admin_username' => $school->admin->username ?? null
+                ];
+            });
+    }
 }

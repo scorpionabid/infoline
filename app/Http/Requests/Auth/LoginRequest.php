@@ -21,7 +21,7 @@ class LoginRequest extends FormRequest
     {
         return [
             'email' => ['required', 'string', 'email'],
-            'password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:6'],
             'remember' => ['boolean']
         ];
     }
@@ -32,9 +32,24 @@ class LoginRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'email.required' => 'Email daxil edilməlidir.',
+            'email.required' => 'Email ünvanını daxil edin.',
             'email.email' => 'Düzgün email formatı daxil edin.',
-            'password.required' => 'Şifrə daxil edilməlidir.',
+            'email.string' => 'Email mətn formatında olmalıdır.',
+            'password.required' => 'Şifrəni daxil edin.',
+            'password.string' => 'Şifrə mətn formatında olmalıdır.',
+            'password.min' => 'Şifrə ən azı :min simvoldan ibarət olmalıdır.'
+        ];
+    }
+
+    /**
+     * Validation attributlarının adları
+     */
+    public function attributes(): array
+    {
+        return [
+            'email' => 'Email',
+            'password' => 'Şifrə',
+            'remember' => 'Məni xatırla'
         ];
     }
 }

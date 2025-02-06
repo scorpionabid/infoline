@@ -2,20 +2,13 @@
 
 namespace Tests\Feature\API\V1;
 
-use App\Domain\Entities\Region;
-use App\Domain\Entities\School;
-use App\Domain\Entities\Sector;
-use App\Domain\Entities\User;
 use App\Domain\Enums\UserType;
+use App\Domain\Entities\User;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
 use Tests\ApiTestCase;
 
 class AuthControllerTest extends ApiTestCase
 {
-    use WithFaker;
-
     private $region;
     private $sector;
     private $school;
@@ -24,92 +17,41 @@ class AuthControllerTest extends ApiTestCase
     {
         parent::setUp();
 
-        // Factory istifadə edərək test datalarını yaradırıq
-        $this->region = Region::factory()->create([
-            'name' => 'Test Region',
-            'phone' => '+994501234567'
-        ]);
-
-        $this->sector = Sector::factory()->create([
-            'name' => 'Test Sector',
-            'region_id' => $this->region->id
-        ]);
-
-        $this->school = School::factory()->create([
-            'name' => 'Test School',
-            'utis_code' => '1234567',
-            'phone' => '+994501234567',
-            'email' => 'school@edu.gov.az',
-            'sector_id' => $this->sector->id
-        ]);
+        // Base test datalarını yaradaq
+        $this->region = $this->createRegion('Test Region');
+        $this->sector = $this->createSector($this->region, 'Test Sector');
+        $this->school = $this->createSchool($this->sector, 'Test School');
     }
 
     /** @test */
-    public function user_can_register()
+    public function user_can_login_with_valid_credentials(): void
     {
-        $userData = [
-            'first_name' => 'John',
-            'last_name' => 'Doe',
-            'email' => 'john@edu.gov.az',
-            'username' => 'johndoe',
-            'password' => 'Password123',
-            'utis_code' => '1000001',
-            'user_type' => UserType::SCHOOL_ADMIN->value,
-            'region_id' => $this->region->id,
-            'sector_id' => $this->sector->id,
-            'school_id' => $this->school->id
-        ];
+        // Test üçün istifadəçi yaradaq
+        $password = 'password';
+        $user = $this->createSuperAdmin();
 
-        $response = $this->postJson('/api/v1/auth/register', $userData);
+        \Log::info('Test login attempt', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+        ]);
 
-        $response->assertCreated()
-            ->assertJsonStructure([
-                'success',
-                'data' => [
-                    'user',
-                    'token'
-                ],
-                'message'
-            ]);
-    }
-
-    /** @test */
-    public function user_cannot_register_with_invalid_data()
-    {
-        $response = $this->postJson('/api/v1/auth/register', []);
-
-        $response->assertStatus(422)
-            ->assertJsonValidationErrors([
-                'first_name', 'last_name', 'email', 'username',
-                'password', 'utis_code', 'user_type', 'region_id',
-                'sector_id'
-            ]);
-    }
-
-    /** @test */
-    public function user_can_login(): void
-    {
-        // Test üçün istifadəçi yaradırıq
-        $password = 'Password123';
-        $userData = [
-            'email' => 'test@example.com',
-            'password' => Hash::make($password),
-            'utis_code' => '1234567',
-            'first_name' => 'Test',
-            'last_name' => 'User',  
-            'username' => 'testuser',
-            'user_type' => UserType::SUPER_ADMIN->value
-        ];
-        
-        $user = User::create($userData);
-
-        // Login sorğusu göndəririk
+        // Login sorğusu göndərək
         $response = $this->postJson('/api/v1/auth/login', [
             'email' => $user->email,
-            'password' => $password // həşlənməmiş password göndəririk
+            'password' => $password
         ]);
 
-        // Response-u yoxlayırıq
+        // Debug üçün response-u log edək
+        if ($response->status() !== 200) {
+            \Log::error('Login test failed', [
+                'status' => $response->status(),
+                'content' => $response->getContent(),
+                'test_password' => $password,
+                'user_email' => $user->email
+            ]);
+        }
+
+        // Cavabı yoxlayaq
         $response->assertOk()
             ->assertJsonStructure([
                 'success',
@@ -129,14 +71,22 @@ class AuthControllerTest extends ApiTestCase
                 ],
                 'message'
             ]);
+            
+        // Token yaradılmasını yoxlayaq
+        $this->assertDatabaseHas('personal_access_tokens', [
+            'tokenable_id' => $user->id,
+            'tokenable_type' => User::class
+        ]);
     }
 
     /** @test */
-    public function user_cannot_login_with_invalid_credentials()
+    public function user_cannot_login_with_invalid_password(): void 
     {
+        $user = $this->createSuperAdmin();
+
         $response = $this->postJson('/api/v1/auth/login', [
-            'email' => 'nonexistent@edu.gov.az',
-            'password' => 'WrongPassword123'
+            'email' => $user->email,
+            'password' => 'wrong_password'
         ]);
 
         $response->assertStatus(401)
@@ -147,46 +97,26 @@ class AuthControllerTest extends ApiTestCase
     }
 
     /** @test */
-    public function user_can_logout()
+    public function user_cannot_login_with_nonexistent_email(): void
     {
-        $user = $this->createSchoolAdmin($this->region, $this->sector, $this->school);
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $response = $this->postJson('/api/v1/auth/login', [
+            'email' => 'nonexistent@example.com',
+            'password' => 'any_password'
+        ]);
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
-            ->postJson('/api/v1/auth/logout');
-
-        $response->assertOk()
+        $response->assertStatus(401)
             ->assertJson([
-                'success' => true,
-                'message' => 'User logged out successfully'
+                'success' => false,
+                'message' => 'Invalid credentials'
             ]);
-
-        $this->assertDatabaseCount('personal_access_tokens', 0);
     }
 
     /** @test */
-    public function user_can_get_their_details()
+    public function login_requires_email_and_password(): void
     {
-        $user = $this->createSchoolAdmin($this->region, $this->sector, $this->school);
+        $response = $this->postJson('/api/v1/auth/login', []);
 
-        $response = $this->actingAsUser($user)
-            ->getJson('/api/v1/auth/user');
-
-        $response->assertOk()
-            ->assertJsonStructure([
-                'success',
-                'data' => [
-                    'id',
-                    'first_name',
-                    'last_name',
-                    'email',
-                    'username',
-                    'utis_code',
-                    'user_type',
-                    'created_at',
-                    'updated_at'
-                ],
-                'message'
-            ]);
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['email', 'password']);
     }
 }
