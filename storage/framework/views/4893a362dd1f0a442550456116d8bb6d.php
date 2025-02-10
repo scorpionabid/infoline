@@ -1,6 +1,4 @@
-@extends('layouts.app')
-
-@section('content')
+<?php $__env->startSection('content'); ?>
 <div class="container-fluid">
     <!-- Header -->
     <div class="row mb-4">
@@ -18,7 +16,7 @@
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
                                 Regionlar</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $regionCount ?? 0 }}</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo e($regionCount ?? 0); ?></div>
                         </div>
                         <div class="col-auto">
                             <i class="fas fa-map-marked-alt fa-2x text-gray-300"></i>
@@ -35,7 +33,7 @@
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
                                 Sektorlar</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $sectorCount ?? 0 }}</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo e($sectorCount ?? 0); ?></div>
                         </div>
                         <div class="col-auto">
                             <i class="fas fa-building fa-2x text-gray-300"></i>
@@ -52,7 +50,7 @@
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
                                 Məktəblər</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $schoolCount ?? 0 }}</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo e($schoolCount ?? 0); ?></div>
                         </div>
                         <div class="col-auto">
                             <i class="fas fa-school fa-2x text-gray-300"></i>
@@ -69,7 +67,7 @@
                         <div class="col mr-2">
                             <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
                                 İstifadəçilər</div>
-                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ $userCount ?? 0 }}</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo e($userCount ?? 0); ?></div>
                         </div>
                         <div class="col-auto">
                             <i class="fas fa-users fa-2x text-gray-300"></i>
@@ -104,4 +102,5 @@
         </div>
     </div>
     </div>
-@endsection
+<?php $__env->stopSection(); ?>
+<?php echo $__env->make('layouts.app', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?><?php /**PATH /Users/home/Library/CloudStorage/OneDrive-BureauonICTforEducation,MinistryofEducation/infoline_app/resources/views/pages/dashboard/super-admin.blade.php ENDPATH**/ ?>

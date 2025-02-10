@@ -1,110 +1,194 @@
 <?php
 
+/**
+ * İstifadə edilən Controller-lər
+ */
 use App\Http\Controllers\Web\AuthController;
 use App\Http\Controllers\Web\DebugController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\TableSettingsController;
+use App\Http\Controllers\Settings\UserManagementController;
+use App\Http\Controllers\SchoolManagementController;
+use App\Http\Controllers\SectorManagementController;
+use App\Http\Controllers\RegionManagementController;
 use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| Web Routes
+| Authentication Routes (Guest)
 |--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "web" middleware group.
-|
 */
-
-// Guest/Public routes
 Route::middleware('guest')->group(function () {
-   // Ana səhifə redirecti
-   Route::get('/', function () {
-       return redirect()->route('login');
-   });
-   
-   // Auth routes
-   Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
-   Route::post('/login', [AuthController::class, 'login']);
-   // routes/web.php-də əlavə edək:
-   Route::get('/forgot-password', [AuthController::class, 'showForgotForm'])->name('password.request');
-   Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->name('password.email');
+    // Ana səhifə - login-ə yönləndir
+    Route::get('/', function () {
+        return redirect()->route('login.form');
+    });
+
+    // Giriş səhifəsi və əməliyyatları
+    Route::get('/login', [AuthController::class, 'showLoginForm'])
+        ->name('login.form');
+    
+    // Brute force hücumlarından qorunmaq üçün throttle
+    Route::middleware(['throttle:login'])->group(function () {
+        Route::post('/login', [AuthController::class, 'login'])
+            ->name('login');
+    });
+
+    // Şifrə bərpası
+    Route::get('/forgot-password', [AuthController::class, 'showForgotForm'])
+        ->name('password.request');
+    Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])
+        ->name('password.email');
 });
 
-// Protected/Authenticated routes
+/*
+|--------------------------------------------------------------------------
+| Authenticated Routes
+|--------------------------------------------------------------------------
+*/
 Route::middleware('auth')->group(function () {
-   // Logout
-   Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-   
-   // Dashboard routes
-   Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    // Çıxış
+    Route::post('/logout', [AuthController::class, 'logout'])
+        ->name('logout');
 
-   // SuperAdmin dashboard
-   Route::get('/dashboard/super-admin', [DashboardController::class, 'superAdmin'])
-       ->middleware('role:super_admin')
-       ->name('dashboard.super-admin');
+    /*
+    |--------------------------------------------------------------------------
+    | Dashboard Routes
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->name('dashboard');
 
-   // SectorAdmin dashboard
-   Route::get('/dashboard/sector-admin', [DashboardController::class, 'sectorAdmin'])
-       ->middleware('role:sector_admin')
-       ->name('dashboard.sector-admin');
+    // SuperAdmin Dashboard
+    Route::middleware('role:super_admin')->group(function () {
+        Route::get('/dashboard/super-admin', [DashboardController::class, 'superAdmin'])
+            ->name('dashboard.super-admin');
+    });
 
-   // SchoolAdmin dashboard
-   Route::get('/dashboard/school-admin', [DashboardController::class, 'schoolAdmin'])
-       ->middleware('role:school_admin')
-       ->name('dashboard.school-admin');
+    // Sector Admin Dashboard
+    Route::middleware('role:sector_admin')->group(function () {
+        Route::get('/dashboard/sector-admin', [DashboardController::class, 'sectorAdmin'])
+            ->name('dashboard.sector-admin');
+    });
 
-   // Settings routes
-   Route::prefix('settings')->group(function () {
-       Route::get('/', [SettingsController::class, 'index'])->name('settings');
-       
-       // Categories (only for super_admin)
-       Route::middleware('role:super_admin')->group(function () {
-           Route::get('/categories', [SettingsController::class, 'categories'])->name('settings.categories');
-           Route::get('/schools', [SettingsController::class, 'schools'])->name('settings.schools');
-       });
+    // School Admin Dashboard
+    Route::middleware('role:school_admin')->group(function () {
+        Route::get('/dashboard/school-admin', [DashboardController::class, 'schoolAdmin'])
+            ->name('dashboard.school-admin');
+    });
 
-       // School settings (for school_admin)
-       Route::middleware('role:school_admin')->group(function () {
-           Route::get('/school', [SettingsController::class, 'school'])->name('settings.school');
-       });
+    /*
+    |--------------------------------------------------------------------------
+    | Settings Routes
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('settings')->middleware(['auth', 'role:super-admin'])->name('settings.')->group(function () {
+        // Ana səhifə
+        Route::get('/', [SettingsController::class, 'index'])
+            ->name('index');
 
-       // Sector settings (for sector_admin)
-       Route::middleware('role:sector_admin')->group(function () {
-           Route::get('/sector', [SettingsController::class, 'sector'])->name('settings.sector');
-       });
-       
-        Route::get('/test-log', function () {
-            Log::info('Test log message', [
-             'user_id' => auth()->id(),
-             'timestamp' => now()->toDateTimeString()
-            ]);
-            return 'Test log created';
-        })->name('test.log');
-       
-   });
+        // Cədvəl Ayarları
+        Route::prefix('table')->group(function () {
+            Route::controller(TableSettingsController::class)->group(function () {
+                Route::get('/', 'index')
+                    ->name('table');
+            
+                // Kateqoriya route-ları
+                Route::prefix('category')->group(function () {
+                    Route::post('/', 'storeCategory')
+                        ->name('table.category.store');
+                    Route::put('/{category}', 'updateCategory')
+                        ->name('table.category.update');
+                    Route::delete('/{category}', 'destroyCategory')
+                        ->name('table.category.destroy');
+                });
+            
+                // Sütun route-ları
+                Route::prefix('column')->group(function () {
+                    Route::post('/', 'storeColumn')
+                        ->name('table.column.store');
+                    Route::put('/{column}', 'updateColumn')
+                        ->name('table.column.update');
+                    Route::delete('/{column}', 'destroyColumn')
+                        ->name('table.column.destroy');
+                });
+            });
+        });
 
-   // Profile routes
-   Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
-   Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
-   Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+        // Personal ayarları
+        Route::get('/personal', [SettingsController::class, 'personal'])
+            ->name('personal');
 
-   // API Documentation (only for super_admin)
-   Route::get('/api-docs', function () {
-       return view('pages.api-docs');
-   })->middleware('role:super_admin')->name('api-docs');
-   
+        // İstifadəçi İdarəetməsi (User Management)
+        Route::resource('users', UserManagementController::class);
+        Route::put('users/{user}/status', [UserManagementController::class, 'updateStatus'])
+            ->name('users.status');
+        Route::put('users/{user}/roles', [UserManagementController::class, 'updateRoles'])
+            ->name('users.roles');
+
+        // Məktəb İdarəetməsi (School Management)
+        Route::resource('schools', SchoolManagementController::class);
+        Route::put('schools/{school}/status', [SchoolManagementController::class, 'updateStatus'])
+            ->name('schools.status');
+        Route::post('schools/{school}/admin', [SchoolManagementController::class, 'assignAdmin'])
+            ->name('schools.admin');
+
+        // Sektor İdarəetməsi (Sector Management)
+        Route::resource('sectors', SectorManagementController::class);
+        Route::post('sectors/{sector}/schools', [SectorManagementController::class, 'addSchool'])
+            ->name('sectors.schools');
+        Route::post('sectors/{sector}/admin', [SectorManagementController::class, 'assignAdmin'])
+            ->name('sectors.admin');
+
+        // Region İdarəetməsi (Region Management)
+        Route::resource('regions', RegionManagementController::class);
+        Route::post('regions/{region}/sectors', [RegionManagementController::class, 'addSector'])
+            ->name('regions.sectors');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Profile Routes
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('profile')->middleware('auth')->group(function () {
+        Route::get('/', [ProfileController::class, 'show'])
+            ->name('profile');
+        Route::put('/', [ProfileController::class, 'update'])
+            ->name('profile.update');
+        Route::put('/password', [ProfileController::class, 'updatePassword'])
+            ->name('profile.password');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | API Documentation Routes
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/api-docs', function () {
+        return view('pages.api-docs');
+    })->middleware('role:super_admin')->name('api-docs');
 });
 
-// Fallback route
-Route::fallback(function () {
-   return view('pages.errors.404');
-});
-
-// Debug routes (yalnız development zamanı)
+/*
+|--------------------------------------------------------------------------
+| Debug Routes (Local Environment Only)
+|--------------------------------------------------------------------------
+*/
 if (app()->environment('local')) {
-   Route::get('/debug/user', [DebugController::class, 'checkUser']);
-   Route::get('/debug/password', [DebugController::class, 'checkPassword']);
+    Route::prefix('debug')->group(function () {
+        Route::get('/user', [DebugController::class, 'checkUser']);
+        Route::get('/password', [DebugController::class, 'checkPassword']);
+    });
 }
+
+/*
+|--------------------------------------------------------------------------
+| 404 Fallback Route
+|--------------------------------------------------------------------------
+*/
+Route::fallback(function () {
+    abort(404,'Səhifə tapılmadı');
+});
