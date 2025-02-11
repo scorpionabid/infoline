@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Settings;
+namespace App\Http\Controllers\Settings\Personal;
 
 use App\Http\Controllers\Controller;
 use App\Domain\Entities\User;
@@ -26,7 +26,7 @@ class UserManagementController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        return view('settings.users.index', compact('users'));
+        return view('pages.settings.personal.users.index', compact('schools', 'schoolAdmins', 'users'));
     }
 
     /**

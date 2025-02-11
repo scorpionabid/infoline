@@ -1,22 +1,22 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Settings\Personal;
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
 use App\Domain\Entities\Region;
-use App\Domain\Entities\Sector;
+use Illuminate\Http\Request;
 
 class RegionManagementController extends Controller
 {
     public function index()
     {
         $regions = Region::paginate(20);
-        return view('settings.regions.index', compact('regions'));
+        return view('pages.settings.personal.regions.index', compact('regions'));
     }
 
     public function create()
     {
-        return view('settings.regions.create');
+        return view('settings.personal.regions.create');
     }
 
     public function store(Request $request)

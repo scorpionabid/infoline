@@ -36,7 +36,7 @@
                 </div>
                 <div class="list-group list-group-flush">
                     <?php $__empty_1 = true; $__currentLoopData = $categories; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $category): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
-                        <a href="<?php echo e(route('settings.table', ['category' => $category->id])); ?>" 
+                        <a href="<?php echo e(route('settings.table.index', ['category' => $category->id])); ?>" 
                            class="list-group-item list-group-item-action d-flex justify-content-between align-items-center
                                   <?php echo e($selectedCategory && $selectedCategory->id === $category->id ? 'active' : ''); ?>">
                             <span><?php echo e($category->name); ?></span>
@@ -155,4 +155,4 @@
 <?php $__env->startPush('scripts'); ?>
 <script src="<?php echo e(asset('js/views/settings/table.js')); ?>"></script>
 <?php $__env->stopPush(); ?>
-<?php echo $__env->make('layouts.app', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?><?php /**PATH /Users/home/Library/CloudStorage/OneDrive-BureauonICTforEducation,MinistryofEducation/infoline_app/resources/views/pages/settings/table.blade.php ENDPATH**/ ?>
+<?php echo $__env->make('layouts.app', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?><?php /**PATH /Users/home/Library/CloudStorage/OneDrive-BureauonICTforEducation,MinistryofEducation/infoline_app/resources/views/pages/settings/table/index.blade.php ENDPATH**/ ?>

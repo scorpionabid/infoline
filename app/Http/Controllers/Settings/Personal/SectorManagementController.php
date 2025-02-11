@@ -1,6 +1,7 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Settings\Personal;
+use App\Http\Controllers\Controller;
 
 use Illuminate\Http\Request;
 use App\Domain\Entities\Sector;
@@ -12,13 +13,13 @@ class SectorManagementController extends Controller
     public function index()
     {
         $sectors = Sector::with('region')->paginate(20);
-        return view('settings.sectors.index', compact('sectors'));
+        return view('pages.settings.personal.sectors.index', compact('sectors'));
     }
 
     public function create()
     {
         $regions = Region::all();
-        return view('settings.sectors.create', compact('regions'));
+        return view('pages.settings.personal.sectors.create', compact('regions'));
     }
 
     public function store(Request $request)

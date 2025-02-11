@@ -1,23 +1,28 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Settings\Personal;
+use App\Http\Controllers\Controller;
 
 use Illuminate\Http\Request;
 use App\Domain\Entities\School;
 use App\Domain\Entities\Sector;
+use App\Domain\Entities\User;
 
 class SchoolManagementController extends Controller
 {
     public function index()
     {
         $schools = School::with('sector')->paginate(20);
-        return view('settings.schools.index', compact('schools'));
+        $schoolAdmins = User::where('user_type', 'schooladmin')
+            ->with('school')
+            ->paginate(20);
+        return view('pages.settings.personal.schools.index', compact('schools', 'schoolAdmins'));
     }
 
     public function create()
     {
         $sectors = Sector::all();
-        return view('settings.schools.create', compact('sectors'));
+        return view('pages.settings.personal.schools.create', compact('sectors'));
     }
 
     public function store(Request $request)

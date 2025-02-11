@@ -49,6 +49,10 @@ class School extends Model
     {
         return $this->hasMany(User::class)->where('user_type', 'schooladmin');
     }
+    public function hasAdmins(): bool
+    {
+        return $this->admins()->exists();
+    }
 
     // Məktəbin tam adını qaytarır (Region + Sektor + Məktəb)
     public function getFullNameAttribute(): string

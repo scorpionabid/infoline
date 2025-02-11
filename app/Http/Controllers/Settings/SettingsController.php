@@ -1,10 +1,14 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Settings;
 
+
+use App\Http\Controllers\Controller;
+use App\Http\Controllers\Settings\Personal\PersonalController;
 use App\Models\Category;
 use App\Models\Column;
 use Illuminate\Http\Request;
+use App\Domain\Entities\{School, User, Region, Sector};
 
 class SettingsController extends Controller
 {
@@ -96,8 +100,14 @@ class SettingsController extends Controller
     // Personal ayarları
     public function personal()
     {
+        $data = [
+            'schools' => School::with(['sector.region'])->get(),
+            'schoolAdmins' => User::where('user_type', 'schooladmin')->with('school')->get(),
+            'regions' => Region::withCount('sectors')->get(),
+            'sectors' => Sector::withCount('schools')->get()
+        ];
         // Personal ayarları səhifəsi
-        return view('settings.personal');
+        return view('pages.settings.personal.index', $data);
     }
 
     // Məktəblər üçün metodlar

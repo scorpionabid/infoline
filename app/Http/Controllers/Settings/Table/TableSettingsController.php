@@ -1,7 +1,9 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Settings\Table;
+use AppHttpControllersController;
 
+use App\Http\Controllers\Controller;
 use App\Domain\Entities\Category;
 use App\Domain\Entities\Column;
 use Illuminate\Http\Request;
@@ -41,7 +43,7 @@ class TableSettingsController extends Controller
             
                 $columns = $selectedCategory->columns;
             }
-            return view('pages.settings.table', compact('categories', 'selectedCategory', 'columns'));
+            return view('pages.settings.table.index', compact('categories', 'selectedCategory', 'columns'));
         } catch (\Exception $e) {
             Log::error('Settings Table Error: ' . $e->getMessage());
             return back()->with('error', 'Xəta baş verdi: ' . $e->getMessage());
