@@ -1,4 +1,3 @@
-```php
 <?php
 
 use App\Http\Controllers\Web\{AuthController, DebugController};
@@ -77,6 +76,12 @@ Route::middleware('auth')->group(function () {
             Route::resource('regions', RegionManagementController::class);
             Route::post('regions/{region}/sectors', [RegionManagementController::class, 'addSector'])
                 ->name('regions.sectors');
+            Route::get('regions/{region}/edit', [RegionManagementController::class, 'edit'])
+                ->name('regions.edit');
+            Route::delete('regions/{region}', [RegionManagementController::class, 'destroy'])
+                ->name('regions.destroy');
+            Route::put('regions/{region}', [RegionManagementController::class, 'update'])
+                ->name('regions.update');
 
             // Sector management
             Route::resource('sectors', SectorManagementController::class);

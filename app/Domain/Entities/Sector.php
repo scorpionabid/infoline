@@ -17,7 +17,8 @@ class Sector extends Model
     protected $fillable = [
         'name',
         'phone',
-        'region_id'
+        'region_id',
+        'admin_id',
     ];
     protected static function newFactory()
     {
@@ -40,5 +41,11 @@ class Sector extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    // Sektora aid olan admin ilə əlaqə
+    public function admin(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'admin_id');
     }
 }

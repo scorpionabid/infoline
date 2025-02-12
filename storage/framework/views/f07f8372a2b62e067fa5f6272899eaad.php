@@ -41,20 +41,29 @@
                                        <span class="badge bg-warning">Admin təyin edilməyib</span>
                                    <?php endif; ?>
                                </td>
-                               <td>
-                                   <div class="btn-group">
-                                       <button class="btn btn-sm btn-outline-primary" 
-                                               onclick="editSector(<?php echo e($sector->id); ?>)">
-                                           <i class="fas fa-edit"></i>
-                                       </button>
-                                       <?php if($sector->schools_count == 0): ?>
-                                       <button class="btn btn-sm btn-outline-danger" 
-                                               onclick="deleteSector(<?php echo e($sector->id); ?>)">
-                                           <i class="fas fa-trash"></i>
-                                       </button>
-                                       <?php endif; ?>
-                                   </div>
-                               </td>
+                               <<td>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                onclick="editSector(<?php echo e($sector->id); ?>)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+        
+        <!-- Yeni admin təyinat düyməsi -->
+                                        <button class="btn btn-sm btn-outline-warning btn-assign-sector-admin" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#sectorAdminModal"
+                                                data-sector-id="<?php echo e($sector->id); ?>">
+                                            <i class="fas fa-user-plus"></i>
+                                        </button>
+
+                                        <?php if($sector->schools_count == 0): ?>
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                onclick="deleteSector(<?php echo e($sector->id); ?>)">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
                            </tr>
                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                        </tbody>
@@ -65,4 +74,51 @@
    </div>
 </div>
 <?php $__env->stopSection(); ?>
+
+<?php echo $__env->make('pages.settings.personal.modals.sector-admin-modal', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?>
+
+<?php $__env->startPush('scripts'); ?>
+<script>
+    // Admin təyinatı üçün JavaScript
+    $(document).ready(function() {
+        $(".btn-assign-sector-admin").on("click", function() {
+            const sectorId = $(this).data("sector-id");
+            $("#sectorAdminModal form").attr(
+                'action', 
+                "<?php echo e(route('settings.personal.sectors.admin', ':id')); ?>".replace(':id', sectorId)
+            );
+        });
+
+        $("#sectorAdminModal form").on("submit", function(e) {
+            e.preventDefault();
+            const form = $(this);
+
+            $.ajax({
+                url: form.attr('action'),
+                type: 'POST',
+                data: form.serialize(),
+                success: function(response) {
+                    if (response.success) {
+                        $("#sectorAdminModal").modal('hide');
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Uğurlu!',
+                            text: response.message
+                        }).then(() => {
+                            location.reload();
+                        });
+                    }
+                },
+                error: function(xhr) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Xəta!',
+                        text: xhr.responseJSON.message
+                    });
+                }
+            });
+        });
+    });
+</script>
+<?php $__env->stopPush(); ?>
 <?php echo $__env->make('pages.settings.personal.index', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?><?php /**PATH /Users/home/Library/CloudStorage/OneDrive-BureauonICTforEducation,MinistryofEducation/infoline_app/resources/views/pages/settings/personal/sectors/index.blade.php ENDPATH**/ ?>

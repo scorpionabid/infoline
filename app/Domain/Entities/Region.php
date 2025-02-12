@@ -5,6 +5,7 @@ namespace App\Domain\Entities;
 use Database\Factories\RegionFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
@@ -29,7 +30,7 @@ class Region extends Model
     }
 
     // Region-a aid olan bütün məktəbləri əldə etmək üçün
-    public function schools(): HasMany
+    public function schools(): HasManyThrough
     {
         return $this->hasManyThrough(School::class, Sector::class);
     }

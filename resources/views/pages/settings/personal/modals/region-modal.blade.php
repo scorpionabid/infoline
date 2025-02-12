@@ -3,6 +3,7 @@
         <div class="modal-content">
             <form action="{{ route('settings.personal.regions.store') }}" method="POST">
                 @csrf
+                <input type="hidden" name="_method" value="POST">
                 <div class="modal-header">
                     <h5 class="modal-title">Region əlavə et</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>

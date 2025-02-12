@@ -42,20 +42,29 @@
                                        <span class="badge bg-warning">Admin təyin edilməyib</span>
                                    @endif
                                </td>
-                               <td>
-                                   <div class="btn-group">
-                                       <button class="btn btn-sm btn-outline-primary" 
-                                               onclick="editSector({{ $sector->id }})">
-                                           <i class="fas fa-edit"></i>
-                                       </button>
-                                       @if($sector->schools_count == 0)
-                                       <button class="btn btn-sm btn-outline-danger" 
-                                               onclick="deleteSector({{ $sector->id }})">
-                                           <i class="fas fa-trash"></i>
-                                       </button>
-                                       @endif
-                                   </div>
-                               </td>
+                               <<td>
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                onclick="editSector({{ $sector->id }})">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+        
+        <!-- Yeni admin təyinat düyməsi -->
+                                        <button class="btn btn-sm btn-outline-warning btn-assign-sector-admin" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#sectorAdminModal"
+                                                data-sector-id="{{ $sector->id }}">
+                                            <i class="fas fa-user-plus"></i>
+                                        </button>
+
+                                        @if($sector->schools_count == 0)
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                onclick="deleteSector({{ $sector->id }})">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        @endif
+                                    </div>
+                                </td>
                            </tr>
                            @endforeach
                        </tbody>
@@ -66,3 +75,50 @@
    </div>
 </div>
 @endsection
+
+@include('pages.settings.personal.modals.sector-admin-modal')
+
+@push('scripts')
+<script>
+    // Admin təyinatı üçün JavaScript
+    $(document).ready(function() {
+        $(".btn-assign-sector-admin").on("click", function() {
+            const sectorId = $(this).data("sector-id");
+            $("#sectorAdminModal form").attr(
+                'action', 
+                "{{ route('settings.personal.sectors.admin', ':id') }}".replace(':id', sectorId)
+            );
+        });
+
+        $("#sectorAdminModal form").on("submit", function(e) {
+            e.preventDefault();
+            const form = $(this);
+
+            $.ajax({
+                url: form.attr('action'),
+                type: 'POST',
+                data: form.serialize(),
+                success: function(response) {
+                    if (response.success) {
+                        $("#sectorAdminModal").modal('hide');
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Uğurlu!',
+                            text: response.message
+                        }).then(() => {
+                            location.reload();
+                        });
+                    }
+                },
+                error: function(xhr) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Xəta!',
+                        text: xhr.responseJSON.message
+                    });
+                }
+            });
+        });
+    });
+</script>
+@endpush
