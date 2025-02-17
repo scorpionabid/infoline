@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\API\V1;
 
 use App\Application\DTOs\SectorDTO;
+use App\Application\DTOs\UserDTO;
 use App\Application\Services\SectorService;
 use App\Http\Requests\API\V1\Sector\StoreSectorRequest;
+use App\Http\Requests\API\V1\Sector\StoreSectorAdminRequest;
 use App\Http\Requests\API\V1\Sector\UpdateSectorRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -105,6 +107,35 @@ class SectorController extends BaseController
             return $this->sendError('Validation Error', [$e->getMessage()], 422);
         } catch (\Exception $e) {
             return $this->sendError('Error deleting sector', [$e->getMessage()], 500);
+        }
+    }
+    /**
+     * Store sector admin
+     */
+    public function storeAdmin(StoreSectorAdminRequest $request, int $sectorId): JsonResponse
+    {
+        try {
+            $userDTO = new UserDTO($request->validated());
+            $sector = $this->sectorService->updateSectorAdmin($sectorId, $userDTO);
+            return $this->sendResponse($sector, 'Sektor admini uğurla əlavə edildi');
+        } catch (InvalidArgumentException $e) {
+            return $this->sendError('Validation Error', [$e->getMessage()], 422);
+        } catch (\Exception $e) {
+            return $this->sendError('Error creating sector admin', [$e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get sector admins
+     */
+    public function getAdmins(Request $request): JsonResponse
+    {
+        try {
+            $regionId = $request->query('region_id');
+            $admins = $this->sectorService->getSectorAdmins($regionId);
+            return $this->sendResponse($admins, 'Sektor adminləri alındı');
+        } catch (\Exception $e) {
+            return $this->sendError('Error getting admins', [$e->getMessage()], 500);
         }
     }
 }

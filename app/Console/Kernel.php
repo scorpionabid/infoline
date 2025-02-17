@@ -8,7 +8,11 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 class Kernel extends ConsoleKernel
 {
     protected $commands = [
-        Commands\ClearOldLogs::class
+        \App\Console\Commands\ClearOldLogs::class,
+    ];
+
+    protected $middleware = [
+        \App\Http\Middleware\LogRequests::class,  // Bunu əlavə etməliyik
     ];
 
     protected function schedule(Schedule $schedule)

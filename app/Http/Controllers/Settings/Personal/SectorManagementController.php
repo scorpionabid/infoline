@@ -1,12 +1,21 @@
 <?php
 
 namespace App\Http\Controllers\Settings\Personal;
+
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Domain\Entities\Sector;
 use App\Domain\Entities\Region;
 use App\Domain\Entities\School;
 use App\Domain\Entities\User;
+use Illuminate\Support\Facades\Log;
+use App\Application\Services\SectorService;
+use App\Application\Services\UserService;
+use App\Http\Requests\Settings\User\StoreUserRequest;
+use App\Http\Requests\Settings\User\UpdateUserRequest;
+use App\Application\DTOs\UserDTO;
+use App\Http\Requests\API\V1\Sector\StoreSectorAdminRequest;
+use App\Application\DTOs\SectorDTO;
 
 class SectorManagementController extends Controller
 {
@@ -117,35 +126,27 @@ class SectorManagementController extends Controller
         return back()->with('success', 'Məktəb sektora əlavə edildi');
     }
 
-    public function assignAdmin(Request $request, Sector $sector)
+    public function assignAdmin(StoreSectorAdminRequest $request, int $sectorId)
     {
-        $validated = $request->validate([
-            'admin_id' => 'required|exists:users,id',
-            'admin_id' => [
-                'exists:users,id',
-                function($attribute, $value, $fail) {
-                    $user = User::find($value);
-                    if (!in_array($user->user_type, ['sectoradmin', 'super_admin'])) {
-                        $fail('Seçilən istifadəçi sektor admini ola bilməz.');
-                    }
-                }
-            ]
-        ]);
         try {
-            $sector->update([
-                'admin_id' => $validated['admin_id']
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Sektora admin təyin edildi'
-        ]);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Admin təyinatı zamanı xəta baş verdi'
-        ], 500);
+            $validated = $request->validated();
+            $userDTO = UserDTO::fromRequest($request);
+            $sector = $this->sectorService->updateSectorAdmin($sectorId, $userDTO);
+        
+            return response()->json([
+                'message' => 'Sektor admini uğurla təyin edildi',
+                'sector' => $sector
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Sektor admin təyinatı xətası: ' . $e->getMessage());
+            return response()->json([
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
-    }
+
+    public function __construct(
+        private SectorService $sectorService,
+        private UserService $userService
+    ) {}
 }

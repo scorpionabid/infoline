@@ -1,11 +1,10 @@
 <?php
 
-namespace App\Http\Requests\Permission;
+namespace App\Http\Requests\API\V1\Permission;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
-class UpdatePermissionRequest extends FormRequest
+class StorePermissionRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -16,7 +15,7 @@ class UpdatePermissionRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'slug' => ['required', 'string', 'max:255', Rule::unique('permissions')->ignore($this->permission)],
+            'slug' => ['required', 'string', 'max:255', 'unique:permissions,slug'],
             'description' => ['nullable', 'string'],
             'group' => ['required', 'string', 'max:255']
         ];

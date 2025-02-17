@@ -63,6 +63,8 @@ class Kernel extends HttpKernel
         'abilities' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
         'ability' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
         'role' => \App\Http\Middleware\CheckRole::class,
+        'throttle.login' => \App\Http\Middleware\ThrottleLogins::class,
+        
     ];
 
     protected $routeMiddleware = [];

@@ -45,15 +45,14 @@
                                <<td>
                                     <div class="btn-group">
                                         <button class="btn btn-sm btn-outline-primary" 
-                                                onclick="editSector({{ $sector->id }})">
+                                                onclick="editSector({{ $sector->id }})"
+                                                type="button">
                                             <i class="fas fa-edit"></i>
                                         </button>
         
         <!-- Yeni admin təyinat düyməsi -->
-                                        <button class="btn btn-sm btn-outline-warning btn-assign-sector-admin" 
-                                                data-bs-toggle="modal" 
-                                                data-bs-target="#sectorAdminModal"
-                                                data-sector-id="{{ $sector->id }}">
+                                        <button class="btn btn-sm btn-outline-warning assign-admin-btn" 
+                                            data-sector-id="{{ $sector->id }}"
                                             <i class="fas fa-user-plus"></i>
                                         </button>
 
@@ -77,48 +76,64 @@
 @endsection
 
 @include('pages.settings.personal.modals.sector-admin-modal')
-
+@include('pages.settings.personal.modals.sector-modal')
 @push('scripts')
 <script>
-    // Admin təyinatı üçün JavaScript
-    $(document).ready(function() {
-        $(".btn-assign-sector-admin").on("click", function() {
-            const sectorId = $(this).data("sector-id");
-            $("#sectorAdminModal form").attr(
-                'action', 
-                "{{ route('settings.personal.sectors.admin', ':id') }}".replace(':id', sectorId)
-            );
-        });
+$(document).ready(function() {
+    // Admin təyin etmə düyməsinə click handler
+    $(".assign-admin-btn").on("click", function() {
+        const sectorId = $(this).data("sector-id");
+        const modal = $("#sectorAdminModal");
+        const form = modal.find("form");
+        
+        // Form action və sector_id-ni təyin et
+        form.attr('action', form.attr('action').replace(':id', sectorId));
+        form.find('#sectorIdInput').val(sectorId);
+        
+        // Modalı göstər
+        modal.modal('show');
+    });
 
-        $("#sectorAdminModal form").on("submit", function(e) {
-            e.preventDefault();
-            const form = $(this);
+    // Form submit handler
+    $("#sectorAdminForm").on("submit", function(e) {
+        e.preventDefault();
+        const form = $(this);
 
-            $.ajax({
-                url: form.attr('action'),
-                type: 'POST',
-                data: form.serialize(),
-                success: function(response) {
-                    if (response.success) {
-                        $("#sectorAdminModal").modal('hide');
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Uğurlu!',
-                            text: response.message
-                        }).then(() => {
-                            location.reload();
-                        });
-                    }
-                },
-                error: function(xhr) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Xəta!',
-                        text: xhr.responseJSON.message
-                    });
-                }
-            });
+        $.ajax({
+            url: form.attr('action'),
+            type: 'POST',
+            data: form.serialize(),
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            },
+            success: function(response) {
+                $("#sectorAdminModal").modal('hide');
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Uğurlu!',
+                    text: response.message || 'Sektor admini uğurla təyin edildi'
+                }).then(() => {
+                    location.reload();
+                });
+            },
+            error: function(xhr) {
+                const errorMessage = xhr.responseJSON?.message || 'Xəta baş verdi';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Xəta!',
+                    text: errorMessage
+                });
+
+                // Xətanı console-da göstər
+                console.error("Sektor admin təyinatı xətası:", xhr);
+            }
         });
     });
+
+    // Modal bağlandıqda formu sıfırla
+    $("#sectorAdminModal").on('hidden.bs.modal', function() {
+        $(this).find('form')[0].reset();
+    });
+});
 </script>
 @endpush

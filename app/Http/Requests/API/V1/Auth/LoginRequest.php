@@ -24,6 +24,8 @@ class LoginRequest extends FormRequest
         return [
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
+            'remember' => ['boolean'],
+            'utis_code' => ['sometimes|exists:users,utis_code'],
         ];
     }
 }

@@ -1,40 +1,56 @@
 <?php
 
-use App\Http\Controllers\Web\{AuthController, DebugController};
-use App\Http\Controllers\Dashboard\DashboardController; 
+use App\Http\Controllers\Web\WebAuthController;
+use App\Http\Controllers\API\V1\DashboardController; 
+use App\Http\Controllers\API\V1\ExcelController;
+use App\Http\Controllers\Web\{
+    DebugController,
+    WebExcelController,
+};
 use App\Http\Controllers\Settings\{
     SettingsController,
-    Table\TableSettingsController,
-    Personal\ProfileController,
+    Personal\ProfileController,  
     Personal\RegionManagementController,
     Personal\SectorManagementController,
     Personal\SchoolManagementController,
-    Personal\UserManagementController
+    Personal\UserManagementController,
+    Table\TableSettingsController,
+    Table\DataTableSettingsController,
+
 };
-use Illuminate\Support\Facades\Route;
 
 // Guest routes
 Route::middleware('guest')->group(function () {
-    Route::get('/', fn() => redirect()->route('login.form'));
-    Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login.form');
-    Route::post('/login', [AuthController::class, 'login'])
-        ->middleware(['throttle:login'])
-        ->name('login');
-    Route::get('/forgot-password', [AuthController::class, 'showForgotForm'])->name('password.request');
-    Route::post('/forgot-password', [AuthController::class, 'sendResetLink'])->name('password.email');
+    Route::get('/', fn() => redirect()->route('login'));
+    Route::get('/login', [WebAuthController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [WebAuthController::class, 'login'])
+        ->middleware(['throttle:login']);
+
+    // Password Reset Routes
+    Route::get('forgot-password', [WebAuthController::class, 'showForgotPasswordForm'])
+        ->name('password.request');
+    
+    Route::post('forgot-password', [WebAuthController::class, 'sendPasswordResetLink'])
+        ->name('password.email');
+    
+    Route::get('reset-password/{token}', [WebAuthController::class, 'showResetPasswordForm'])
+        ->name('password.reset');
+    
+    Route::post('reset-password', [WebAuthController::class, 'resetPassword'])
+        ->name('password.update');
 });
 
 // Auth routes
 Route::middleware('auth')->group(function () {
-    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::post('/logout', [WebAuthController::class, 'logout'])->name('logout');
 
     // Dashboard routes
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::middleware('role:super_admin')->get('/dashboard/super-admin', [DashboardController::class, 'superAdmin'])
+    Route::get('/dashboard', [\App\Http\Controllers\Web\Dashboard\DashboardController::class, 'index'])->name('dashboard');
+    Route::middleware('role:super-admin')->get('/dashboard/super-admin', [\App\Http\Controllers\Web\Dashboard\DashboardController::class, 'superAdmin'])
         ->name('dashboard.super-admin');
-    Route::middleware('role:sector_admin')->get('/dashboard/sector-admin', [DashboardController::class, 'sectorAdmin'])
+    Route::middleware('role:sector-admin')->get('/dashboard/sector-admin', [\App\Http\Controllers\Web\Dashboard\DashboardController::class, 'sectorAdmin'])
         ->name('dashboard.sector-admin');
-    Route::middleware('role:school_admin')->get('/dashboard/school-admin', [DashboardController::class, 'schoolAdmin'])
+    Route::middleware('role:school-admin')->get('/dashboard/school-admin', [\App\Http\Controllers\Web\Dashboard\DashboardController::class, 'schoolAdmin'])
         ->name('dashboard.school-admin');
 
     // Settings routes
@@ -88,7 +104,10 @@ Route::middleware('auth')->group(function () {
             Route::post('sectors/{sector}/schools', [SectorManagementController::class, 'addSchool'])
                 ->name('sectors.schools');
             Route::post('sectors/{sector}/admin', [SectorManagementController::class, 'assignAdmin'])
-                ->name('sectors.admin');
+                ->name('sectors.admin')
+                ->middleware(['auth', 'role:superadmin']);
+            Route::get('sectors/template', [SectorManagementController::class, 'downloadTemplate'])
+                ->name('sectors.template');
 
             // School management
             Route::resource('schools', SchoolManagementController::class);

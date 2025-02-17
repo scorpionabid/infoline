@@ -1,7 +1,6 @@
 <?php
 
 namespace App\Http\Controllers\Settings\Table;
-use AppHttpControllersController;
 
 use App\Http\Controllers\Controller;
 use App\Domain\Entities\Category;

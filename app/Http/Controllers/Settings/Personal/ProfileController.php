@@ -1,8 +1,9 @@
 <?php
 
 namespace App\Http\Controllers\Settings\Personal;
-use AppHttpControllersController;
 
+use App\Http\Controllers\Controller;
+use App\Domain\Entities\User;
 use Illuminate\Http\Request;
 
 class ProfileController extends Controller

@@ -6,56 +6,56 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ config('app.name', 'İnfoLine') }}</title>
 
-    <!-- Bootstrap CSS -->
+    <!-- Vendor CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.min.css" rel="stylesheet">
 
-    <!-- SweetAlert2 for confirmations -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
-
-    <!-- Core CSS -->
+    <!-- Application CSS -->
     <link href="{{ asset('css/app.css') }}" rel="stylesheet">
-    
     @yield('styles')
 </head>
 <body>
-    @if(auth()->check())
+    <!-- Navigation -->
+    @auth
         @include('partials.navbar')
-    @endif
+    @endauth
 
+    <!-- Main Content -->
     <div class="container-fluid mt-3">
         @yield('content')
     </div>
 
-    <!-- Core Scripts -->
+    <!-- Vendor Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Global JavaScript Variables -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
+
+    <!-- Global Configurations -->
     <script>
-        const baseUrl = '{{ url('/') }}';
-        const csrfToken = '{{ csrf_token() }}';
-        
-        // AJAX üçün default CSRF token
+        window.appConfig = {
+            baseUrl: '{{ url('/') }}',
+            csrfToken: '{{ csrf_token() }}'
+        };
+
+        // Configure AJAX defaults
         $.ajaxSetup({
             headers: {
-                'X-CSRF-TOKEN': csrfToken
+                'X-CSRF-TOKEN': window.appConfig.csrfToken
             }
         });
     </script>
 
-    <!-- Custom Scripts -->
+    <!-- Application Scripts -->
+    <script src="{{ asset('js/app.js') }}"></script>
     <script src="{{ asset('js/settings/table.js') }}"></script>
     <script src="{{ asset('js/settings/regions.js') }}"></script>
-    <script src="{{ asset('js/app.js') }}"></script>
+    <script src="{{ asset('js/settings/sector.js') }}"></script>
+
+    <!-- Page Specific Scripts -->
     @stack('scripts')
 
-    <!-- Show Alert Messages -->
+    <!-- Flash Messages -->
     @if(session('success'))
         <script>
             Swal.fire({

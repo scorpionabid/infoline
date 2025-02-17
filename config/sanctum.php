@@ -3,81 +3,82 @@
 use Laravel\Sanctum\Sanctum;
 
 return [
-
     /*
     |--------------------------------------------------------------------------
     | Stateful Domains
     |--------------------------------------------------------------------------
-    |
-    | Requests from the following domains / hosts will receive stateful API
-    | authentication cookies. Typically, these should include your local
-    | and production domains which access your API via a frontend SPA.
-    |
+    | Requests from these domains will receive stateful API authentication cookies.
+    | Includes local, development, and production domains.
     */
-
     'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
         '%s%s',
-        'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1',
-        Sanctum::currentApplicationUrlWithPort()
+        'localhost,localhost:3000,localhost:8080,127.0.0.1,127.0.0.1:8000,::1,infoline.az,www.infoline.az',
+        env('APP_URL') ? ','.parse_url(env('APP_URL'), PHP_URL_HOST) : ''
     ))),
 
     /*
     |--------------------------------------------------------------------------
-    | Sanctum Guards
+    | Authentication Guards
     |--------------------------------------------------------------------------
-    |
-    | This array contains the authentication guards that will be checked when
-    | Sanctum is trying to authenticate a request. If none of these guards
-    | are able to authenticate the request, Sanctum will use the bearer
-    | token that's present on an incoming request for authentication.
-    |
+    | Guards to be checked during Sanctum authentication
     */
-
     'guard' => ['web'],
 
     /*
     |--------------------------------------------------------------------------
-    | Expiration Minutes
+    | Token Expiration
     |--------------------------------------------------------------------------
-    |
-    | This value controls the number of minutes until an issued token will be
-    | considered expired. This will override any values set in the token's
-    | "expires_at" attribute, but first-party sessions are not affected.
-    |
+    | Token lifetime in minutes. Default is 7 days.
     */
-
-    'expiration' => null,
+    'expiration' => env('SANCTUM_TOKEN_EXPIRATION', 60 * 24 * 7), // 7 gün
 
     /*
     |--------------------------------------------------------------------------
     | Token Prefix
     |--------------------------------------------------------------------------
-    |
-    | Sanctum can prefix new tokens in order to take advantage of numerous
-    | security scanning initiatives maintained by open source platforms
-    | that notify developers if they commit tokens into repositories.
-    |
-    | See: https://docs.github.com/en/code-security/secret-scanning/about-secret-scanning
-    |
+    | Prefix for tokens to enhance security and aid in scanning
     */
+    'token_prefix' => env('SANCTUM_TOKEN_PREFIX', 'infoline_'),
 
-    'token_prefix' => env('SANCTUM_TOKEN_PREFIX', ''),
+    /*
+    |--------------------------------------------------------------------------
+    | API Prefix
+    |--------------------------------------------------------------------------
+    | Prefix for API routes
+    */
+    'prefix' => env('SANCTUM_API_PREFIX', 'api'),
 
     /*
     |--------------------------------------------------------------------------
     | Sanctum Middleware
     |--------------------------------------------------------------------------
-    |
-    | When authenticating your first-party SPA with Sanctum you may need to
-    | customize some of the middleware Sanctum uses while processing the
-    | request. You may change the middleware listed below as required.
-    |
+    | Middleware used during authentication process
     */
-
     'middleware' => [
         'authenticate_session' => Laravel\Sanctum\Http\Middleware\AuthenticateSession::class,
-        'encrypt_cookies' => App\Http\Middleware\EncryptCookies::class,
         'verify_csrf_token' => App\Http\Middleware\VerifyCsrfToken::class,
+        'encrypt_cookies' => App\Http\Middleware\EncryptCookies::class,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Additional Security Settings
+    |--------------------------------------------------------------------------
+    | Extra configurations to enhance API security
+    */
+    'security' => [
+        // Limit number of tokens per user
+        'max_tokens_per_user' => env('SANCTUM_MAX_TOKENS', 5),
+
+        // Enable token rotation
+        'rotate_tokens' => env('SANCTUM_ROTATE_TOKENS', true),
+
+        // Allowed token abilities
+        'allowed_abilities' => [
+            'read',
+            'write',
+            'admin',
+            'super-admin'
+        ]
+    ]
 ];

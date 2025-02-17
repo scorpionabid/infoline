@@ -20,7 +20,11 @@ return new class extends Migration
             $table->foreignId('region_id')->nullable()->constrained()->onDelete('cascade');
             $table->foreignId('sector_id')->nullable()->constrained()->onDelete('cascade');
             $table->foreignId('school_id')->nullable()->constrained()->onDelete('cascade');
+            
+            // New login tracking columns
             $table->timestamp('last_login_at')->nullable();
+            $table->string('last_login_ip')->nullable();
+            
             $table->timestamp('email_verified_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
@@ -30,6 +34,9 @@ return new class extends Migration
 
     public function down()
     {
-        Schema::dropIfExists('users');
+        Schema::table('users', function (Blueprint $table) {
+            // If you want to drop the newly added columns during rollback
+            $table->dropColumn(['last_login_at', 'last_login_ip']);
+        });
     }
 };

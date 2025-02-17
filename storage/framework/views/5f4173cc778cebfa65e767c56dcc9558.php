@@ -6,56 +6,56 @@
     <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
     <title><?php echo e(config('app.name', 'İnfoLine')); ?></title>
 
-    <!-- Bootstrap CSS -->
+    <!-- Vendor CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.min.css" rel="stylesheet">
 
-    <!-- SweetAlert2 for confirmations -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
-
-    <!-- Core CSS -->
+    <!-- Application CSS -->
     <link href="<?php echo e(asset('css/app.css')); ?>" rel="stylesheet">
-    
     <?php echo $__env->yieldContent('styles'); ?>
 </head>
 <body>
-    <?php if(auth()->check()): ?>
+    <!-- Navigation -->
+    <?php if(auth()->guard()->check()): ?>
         <?php echo $__env->make('partials.navbar', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?>
     <?php endif; ?>
 
+    <!-- Main Content -->
     <div class="container-fluid mt-3">
         <?php echo $__env->yieldContent('content'); ?>
     </div>
 
-    <!-- Core Scripts -->
+    <!-- Vendor Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Global JavaScript Variables -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
+
+    <!-- Global Configurations -->
     <script>
-        const baseUrl = '<?php echo e(url('/')); ?>';
-        const csrfToken = '<?php echo e(csrf_token()); ?>';
-        
-        // AJAX üçün default CSRF token
+        window.appConfig = {
+            baseUrl: '<?php echo e(url('/')); ?>',
+            csrfToken: '<?php echo e(csrf_token()); ?>'
+        };
+
+        // Configure AJAX defaults
         $.ajaxSetup({
             headers: {
-                'X-CSRF-TOKEN': csrfToken
+                'X-CSRF-TOKEN': window.appConfig.csrfToken
             }
         });
     </script>
 
-    <!-- Custom Scripts -->
+    <!-- Application Scripts -->
+    <script src="<?php echo e(asset('js/app.js')); ?>"></script>
     <script src="<?php echo e(asset('js/settings/table.js')); ?>"></script>
     <script src="<?php echo e(asset('js/settings/regions.js')); ?>"></script>
-    <script src="<?php echo e(asset('js/app.js')); ?>"></script>
+    <script src="<?php echo e(asset('js/settings/sector.js')); ?>"></script>
+
+    <!-- Page Specific Scripts -->
     <?php echo $__env->yieldPushContent('scripts'); ?>
 
-    <!-- Show Alert Messages -->
+    <!-- Flash Messages -->
     <?php if(session('success')): ?>
         <script>
             Swal.fire({

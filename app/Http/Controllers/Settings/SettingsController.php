@@ -16,7 +16,7 @@ class SettingsController extends Controller
     public function index()
     {
         // Əsas ayarlar dashboard-u
-        return view('settings.index');
+        return view('pages.settings.index');
     }
 
     // Kateqoriyalar üçün metodlar
@@ -24,13 +24,13 @@ class SettingsController extends Controller
     {
         // Bütün kateqoriyaları gətir
         $categories = Category::all();
-        return view('settings.categories.index', compact('categories'));
+        return view('pages.settings.categories.index', compact('categories'));
     }
 
     public function createCategory()
     {
         // Kateqoriya yaratma forması
-        return view('settings.categories.create');
+        return view('pages.settings.categories.create');
     }
 
     public function storeCategory(Request $request)

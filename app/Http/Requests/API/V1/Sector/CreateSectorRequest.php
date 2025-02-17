@@ -4,7 +4,7 @@ namespace App\Http\Requests\API\V1\Sector;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class StoreSectorRequest extends FormRequest
+class CreateSectorRequest extends FormRequest
 {
     public function authorize(): bool
     {

@@ -21,4 +21,14 @@ class UpdateSchoolRequest extends FormRequest
             'sector_id' => ['required', 'exists:sectors,id']
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'utis_code.required' => 'UTİS kod tələb olunur',
+            'utis_code.unique' => 'Bu UTİS kod artıq istifadə olunub',
+            'phone.required' => 'Telefon nömrəsi tələb olunur',
+            'phone.regex' => 'Telefon nömrəsi düzgün formatda deyil (+994XXXXXXXXX)'
+        ];
+    }
 }

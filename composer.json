@@ -26,13 +26,17 @@
     "autoload": {
         "psr-4": {
             "App\\": "app/",
-            "Database\\": "database/"
+            "App\\Http\\Controllers\\": "app/Http/Controllers/",
+            "App\\Http\\Requests\\": "app/Http/Requests/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
         }
     },
     "autoload-dev": {
         "psr-4": {
             "Tests\\": "tests/",
-            "Tests\\Feature\\API\\V1\\": "tests/Feature/API/V1/"
+            "Tests\\Feature\\API\\V1\\": "tests/Feature/API/V1/",
+            "Tests\\Unit\\": "tests/Unit/"
         }
     },
     "scripts": {

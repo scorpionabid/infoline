@@ -31,6 +31,10 @@ Route::prefix('v1')->group(function () {
         // Sector routes
         Route::apiResource('sectors', SectorController::class);
         Route::get('regions/{region}/sectors', [SectorController::class, 'index']);
+        Route::post('{sectorId}/admin', [SectorController::class, 'assignAdmin']);
+        Route::put('{sectorId}/admin', [SectorController::class, 'updateAdmin']);
+        Route::get('{sectorId}/admins', [SectorController::class, 'listAdmins']);
+        Route::delete('{sectorId}/admin', [SectorController::class, 'removeAdmin']);
 
         // School routes
         Route::apiResource('schools', SchoolController::class);
