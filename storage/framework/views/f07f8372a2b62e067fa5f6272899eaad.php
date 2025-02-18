@@ -33,15 +33,20 @@
                                <td><?php echo e($sector->name); ?></td>
                                <td><?php echo e($sector->phone); ?></td>
                                <td><?php echo e($sector->schools_count); ?></td>
-                               <td>
-                                   <?php if($sector->admin): ?>
-                                       <?php echo e($sector->admin->name); ?>
+                               <!-- Admin hissəsinə əlavələr -->
+                                <td>
+                                    <?php if($sector->admin): ?>
+                                        <div class="d-flex align-items-center">
+                                           <?php echo e($sector->admin->full_name); ?>
 
-                                   <?php else: ?>
-                                       <span class="badge bg-warning">Admin təyin edilməyib</span>
-                                   <?php endif; ?>
-                               </td>
-                               <<td>
+                                            <span class="badge bg-success ms-2">Aktiv</span>
+                                        </div>
+                                        <small class="text-muted"><?php echo e($sector->admin->email); ?></small>
+                                    <?php else: ?>
+                                        <span class="badge bg-warning">Admin təyin edilməyib</span>
+                                    <?php endif; ?>
+                                </td>
+                               <td>
                                     <div class="btn-group">
                                         <button class="btn btn-sm btn-outline-primary" 
                                                 onclick="editSector(<?php echo e($sector->id); ?>)"
@@ -52,6 +57,8 @@
         <!-- Yeni admin təyinat düyməsi -->
                                         <button class="btn btn-sm btn-outline-warning assign-admin-btn" 
                                             data-sector-id="<?php echo e($sector->id); ?>"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#sectorAdminModal">
                                             <i class="fas fa-user-plus"></i>
                                         </button>
 
@@ -60,6 +67,7 @@
                                                 onclick="deleteSector(<?php echo e($sector->id); ?>)">
                                             <i class="fas fa-trash"></i>
                                         </button>
+                                        
                                         <?php endif; ?>
                                     </div>
                                 </td>
@@ -76,64 +84,5 @@
 
 <?php echo $__env->make('pages.settings.personal.modals.sector-admin-modal', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?>
 <?php echo $__env->make('pages.settings.personal.modals.sector-modal', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?>
-<?php $__env->startPush('scripts'); ?>
-<script>
-$(document).ready(function() {
-    // Admin təyin etmə düyməsinə click handler
-    $(".assign-admin-btn").on("click", function() {
-        const sectorId = $(this).data("sector-id");
-        const modal = $("#sectorAdminModal");
-        const form = modal.find("form");
-        
-        // Form action və sector_id-ni təyin et
-        form.attr('action', form.attr('action').replace(':id', sectorId));
-        form.find('#sectorIdInput').val(sectorId);
-        
-        // Modalı göstər
-        modal.modal('show');
-    });
 
-    // Form submit handler
-    $("#sectorAdminForm").on("submit", function(e) {
-        e.preventDefault();
-        const form = $(this);
-
-        $.ajax({
-            url: form.attr('action'),
-            type: 'POST',
-            data: form.serialize(),
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            },
-            success: function(response) {
-                $("#sectorAdminModal").modal('hide');
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Uğurlu!',
-                    text: response.message || 'Sektor admini uğurla təyin edildi'
-                }).then(() => {
-                    location.reload();
-                });
-            },
-            error: function(xhr) {
-                const errorMessage = xhr.responseJSON?.message || 'Xəta baş verdi';
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Xəta!',
-                    text: errorMessage
-                });
-
-                // Xətanı console-da göstər
-                console.error("Sektor admin təyinatı xətası:", xhr);
-            }
-        });
-    });
-
-    // Modal bağlandıqda formu sıfırla
-    $("#sectorAdminModal").on('hidden.bs.modal', function() {
-        $(this).find('form')[0].reset();
-    });
-});
-</script>
-<?php $__env->stopPush(); ?>
 <?php echo $__env->make('pages.settings.personal.index', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?><?php /**PATH /Users/home/Library/CloudStorage/OneDrive-BureauonICTforEducation,MinistryofEducation/infoline_app/resources/views/pages/settings/personal/sectors/index.blade.php ENDPATH**/ ?>

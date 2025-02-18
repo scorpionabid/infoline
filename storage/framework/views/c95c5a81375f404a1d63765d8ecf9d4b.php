@@ -1,50 +1,38 @@
-<div class="modal fade" id="sectorAdminModal" tabindex="-1" aria-labelledby="sectorAdminModalLabel">
-    <div class="modal-dialog modal-lg">
+<div class="modal fade" id="sectorAdminModal">
+    <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="sectorAdminModalLabel">Sektor Admini Təyin Etmə</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title">Sektor Admini Təyin Et</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="sectorAdminForm" method="POST" action="<?php echo e(route('settings.personal.sectors.admin', ':id')); ?>">
+            <form id="sectorAdminForm">
                 <?php echo csrf_field(); ?>
-                <input type="hidden" name="sector_id" id="sectorIdInput">
-                <input type="hidden" name="user_type" value="sectoradmin">
+                <input type="hidden" id="sectorIdInput" name="sector_id">
                 <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Ad</label>
-                            <input type="text" name="name" class="form-control" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">İstifadəçi adı</label>
-                            <input type="text" name="username" class="form-control" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Email</label>
-                            <input type="email" name="email" class="form-control" required>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Şifrə</label>
-                            <input type="password" name="password" class="form-control" required>
-                        </div>
+                    <div class="form-group mb-3">
+                        <label>Ad</label>
+                        <input type="text" name="first_name" class="form-control" required>
                     </div>
-
-                    <div class="card mt-3">
-                        <div class="card-header">Sektor Adminləri</div>
-                        <div class="card-body p-0">
-                            <div class="table-responsive">
-                                <table id="sectorAdminTable" class="table table-striped mb-0">
-                                    <thead>
-                                        <tr>
-                                            <th>Ad</th>
-                                            <th>İstifadəçi adı</th>
-                                            <th>Əməliyyatlar</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody></tbody>
-                                </table>
-                            </div>
-                        </div>
+                    <div class="form-group mb-3">
+                        <label>Soyad</label>
+                        <input type="text" name="last_name" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label>Email</label>
+                        <input type="email" name="email" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label>İstifadəçi adı</label>
+                        <input type="text" name="username" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label>UTIS Kodu</label>
+                        <input type="text" name="utis_code" class="form-control" required 
+                               pattern="[0-9]{7}" maxlength="7">
+                    </div>
+                    <div class="form-group mb-3">
+                        <label>Şifrə</label>
+                        <input type="password" name="password" class="form-control" required>
                     </div>
                 </div>
                 <div class="modal-footer">

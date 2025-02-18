@@ -9,9 +9,12 @@ class UserDTO extends BaseDTO
 {
     public function __construct(
         public ?int $id = null,
-        public string $name,
+        public string $first_name,
+        public string $last_name, 
+        public string $email,
         public string $username,
         public ?string $password = null,
+        public string $utis_code,
         public string $user_type,
         public ?int $sector_id = null,
         public bool $is_active = true,
@@ -23,14 +26,16 @@ class UserDTO extends BaseDTO
         self::validate($request);
 
         return new self(
-            id: $request->id ?? null,
-            name: $request->name,
+            first_name: $request->first_name,
+            last_name: $request->last_name,
+            email: $request->email,
             username: $request->username,
             password: $request->password ? Hash::make($request->password) : null,
-            user_type: $request->user_type,
+            utis_code: $request->utis_code,
+            user_type: UserType::SECTOR_ADMIN->value,
             sector_id: $request->sector_id,
-            is_active: $request->boolean('is_active', true),
-            roles: $request->roles ?? []
+            is_active: true,
+            roles: ['sector-admin']
         );
     }
 

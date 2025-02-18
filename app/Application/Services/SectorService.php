@@ -108,6 +108,13 @@ class SectorService
        return $this->userService->getUsersByConditions($query)->toArray();
    }
 
+   /**
+    * Sektor adminini deaktiv et və rollarını sil
+    * 
+    * @param int $sectorId
+    * @param UserDTO $userDTO
+    * @return Sector
+    */
    public function updateSectorAdmin(int $sectorId, UserDTO $userDTO): Sector
    {
        DB::beginTransaction();
@@ -117,22 +124,80 @@ class SectorService
                throw new InvalidArgumentException('Sektor tapılmadı');
            }
 
+           // Köhnə admini deaktiv et və rollarını sil
            if ($sector->admin_id) {
-               $this->userService->updateUser($sector->admin_id, $userDTO);
-           } else {
-               $userDTO->type = UserType::SECTOR_ADMIN->value;
-               $userDTO->sector_id = $sectorId;
-               $admin = $this->userService->createUser($userDTO);
-               
-               $sector->admin_id = $admin->id;
-               $this->repository->update($sectorId, ['admin_id' => $admin->id]);
+               $oldAdmin = $this->userService->getById($sector->admin_id);
+               if ($oldAdmin) {
+                   $oldAdmin->deactivate();
+                   $oldAdmin->roles()->detach();
+                   $this->removeAdminRoles($oldAdmin, $sector);
+               }
            }
+
+           // Yeni admin
+           $userDTO->type = UserType::SECTOR_ADMIN->value;
+           $userDTO->sector_id = $sectorId;
+           
+           $admin = $sector->admin_id ? 
+               $this->userService->updateUser($sector->admin_id, $userDTO) :
+               $this->userService->createUser($userDTO);
+
+           // Sektor-admin rollarını və əlaqəni təyin et
+           $this->assignAdminRoles($admin, $sector);
+           
+           // Sektora admin təyin et
+           $sector->admin_id = $admin->id;
+           $this->repository->update($sectorId, ['admin_id' => $admin->id]);
+
+           // Sector admin history
+           $this->createAdminHistory($sector, $admin);
 
            DB::commit();
            return $sector;
+
        } catch (\Exception $e) {
            DB::rollBack();
-           throw $e;
+           throw new SectorAdminUpdateException($e->getMessage());
        }
+   }
+
+   private function assignAdminRoles(User $admin, Sector $sector): void 
+   {
+       // Sektor admin rolunu təyin et
+       $sectorAdminRole = Role::where('slug', 'sector-admin')->first();
+       $admin->roles()->sync([$sectorAdminRole->id]);
+
+       // Sektor adminləri üçün icazələri əlavə et
+       $permissions = Permission::where('group', 'sector')->pluck('id');
+       $admin->permissions()->sync($permissions);
+
+       // Sektor-admin əlaqəsini yarat
+       DB::table('sector_admin_roles')->insert([
+           'user_id' => $admin->id,
+           'sector_id' => $sector->id,
+           'admin_type' => 'primary',
+           'created_at' => now()
+       ]);
+   }
+
+   private function removeAdminRoles(User $admin, Sector $sector): void 
+   {
+       $admin->roles()->detach();
+       $admin->permissions()->detach();
+       
+       DB::table('sector_admin_roles')
+           ->where('user_id', $admin->id)
+           ->where('sector_id', $sector->id)
+           ->delete();
+   }
+
+   private function createAdminHistory(Sector $sector, User $admin): void 
+   {
+       DB::table('sector_admin_history')->insert([
+           'sector_id' => $sector->id,
+           'user_id' => $admin->id,
+           'assigned_at' => now(),
+           'assigned_by' => auth()->id()
+       ]);
    }
 }

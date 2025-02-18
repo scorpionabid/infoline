@@ -1,279 +1,134 @@
-// Global konfiqurasiya
 const sectorConfig = {
   urls: {
     edit: `${window.appConfig.baseUrl}/api/v1/sectors/:id/edit`,
     update: `${window.appConfig.baseUrl}/api/v1/sectors/:id`,
     delete: `${window.appConfig.baseUrl}/api/v1/sectors/:id`,
-    assignAdmin: `${window.appConfig.baseUrl}/settings/personal/sectors/:sectorId/admin`,
+    assignAdmin: `${window.appConfig.baseUrl}/settings/personal/sectors/:id/admin`,
+    getAdmin: `${window.appConfig.baseUrl}/api/v1/sectors/:id/admin`,
   },
 };
 
-// Modal instances
-let sectorModal = null;
-let sectorAdminModal = null;
+const sectorAdminForm = {
+  init() {
+    this.form = $("#sectorAdminForm");
+    this.setupValidation();
+    this.handleSubmit();
+  },
 
-// Utility functions
-function initializeModals() {
-  console.log("🔧 Modallar initiallaşdırılır");
-
-  const sectorModalElement = document.getElementById("sectorModal");
-  const sectorAdminModalElement = document.getElementById("sectorAdminModal");
-
-  if (sectorModalElement) {
-    sectorModal = new bootstrap.Modal(sectorModalElement, {
-      backdrop: true,
-      keyboard: true,
-    });
-  }
-
-  if (sectorAdminModalElement) {
-    sectorAdminModal = new bootstrap.Modal(sectorAdminModalElement, {
-      backdrop: true,
-      keyboard: true,
-    });
-  }
-}
-
-// CRUD Operations
-function editSector(sectorId) {
-  console.log(`🔍 Sektor düzəlişi üçün ID: ${sectorId}`);
-
-  if (!sectorModal) {
-    console.error("❌ Sektor modalı tapılmadı");
-    return;
-  }
-
-  $.ajax({
-    url: sectorConfig.urls.edit.replace(":id", sectorId),
-    type: "GET",
-    dataType: "json",
-    success: function (response) {
-      console.log("✅ Sektor məlumatları uğurla gətirildi:", response);
-
-      const form = $("#sectorModal form");
-
-      // Form məlumatlarının doldurulması
-      form.find('[name="name"]').val(response.sector.name);
-      form.find('[name="phone"]').val(response.sector.phone);
-      form.find('[name="region_id"]').val(response.sector.region_id);
-
-      // Form atributlarının yenilənməsi
-      form.attr("action", sectorConfig.urls.update.replace(":id", sectorId));
-      form.find('input[name="_method"]').val("PUT");
-
-      console.log("📝 Form düzəlişə hazırlandı");
-      sectorModal.show();
-    },
-    error: function (xhr) {
-      console.error("❌ Sektor məlumatları gətirilə bilmədi:", xhr);
-      Swal.fire({
-        icon: "error",
-        title: "Xəta!",
-        text: xhr.responseJSON?.message || "Məlumatları yükləmək mümkün olmadı",
-      });
-    },
-  });
-}
-
-function deleteSector(id) {
-  console.log(`🗑️ Sektor silinməsi üçün ID: ${id}`);
-
-  Swal.fire({
-    title: "Əminsiniz?",
-    text: "Bu sektoru silmək istədiyinizə əminsiniz?",
-    icon: "warning",
-    showCancelButton: true,
-    confirmButtonText: "Bəli, sil!",
-    cancelButtonText: "Xeyr, ləğv et",
-    reverseButtons: true,
-  }).then((result) => {
-    if (result.isConfirmed) {
-      $.ajax({
-        url: sectorConfig.urls.delete.replace(":id", id),
-        type: "DELETE",
-        dataType: "json",
-        success: function (response) {
-          console.log("✅ Sektor uğurla silindi:", response);
-          Swal.fire({
-            icon: "success",
-            title: "Silindi!",
-            text: "Sektor uğurla silindi",
-            timer: 1500,
-          }).then(() => {
-            window.location.reload();
-          });
+  setupValidation() {
+    this.form.validate({
+      rules: {
+        first_name: { required: true, maxlength: 255 },
+        last_name: { required: true, maxlength: 255 },
+        email: {
+          required: true,
+          email: true,
+          pattern: /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/,
         },
-        error: function (xhr) {
-          console.error("❌ Sektor silinə bilmədi:", xhr);
-          Swal.fire({
-            icon: "error",
-            title: "Xəta!",
-            text: xhr.responseJSON?.message || "Silinmə zamanı xəta baş verdi",
-          });
+        username: { required: true, maxlength: 50 },
+        password: { required: true, minlength: 8 },
+        utis_code: {
+          required: true,
+          pattern: /^[0-9]{7}$/,
         },
-      });
-    }
-  });
-}
+      },
+      messages: {
+        first_name: "Ad daxil edilməlidir",
+        last_name: "Soyad daxil edilməlidir",
+        email: "Düzgün email formatı daxil edin",
+        username: "İstifadəçi adı tələb olunur",
+        password: "Şifrə minimum 8 simvol olmalıdır",
+        utis_code: "UTİS kodu 7 rəqəmdən ibarət olmalıdır",
+      },
+      errorElement: "span",
+      errorClass: "invalid-feedback",
+      highlight: (element) => $(element).addClass("is-invalid"),
+      unhighlight: (element) => $(element).removeClass("is-invalid"),
+    });
+  },
 
-// Event handlers
-function handleSectorFormSubmit(e) {
-  e.preventDefault();
-  const form = $(this);
+  handleSubmit() {
+    this.form.on("submit", this.submitForm.bind(this));
+  },
 
-  console.log("📤 Sektor formu göndərilir");
-  console.log("🔗 Form URL-i:", form.attr("action"));
-
-  $.ajax({
-    url: form.attr("action"),
-    type: form.attr("method"),
-    data: form.serialize(),
-    dataType: "json",
-    success: function (response) {
-      console.log("✅ Sektor uğurla əlavə/yeniləndi:", response);
-      sectorModal.hide();
-
-      Swal.fire({
-        icon: "success",
-        title: "Uğurlu!",
-        text: response.message,
-        timer: 1500,
-      }).then(() => {
-        window.location.reload();
-      });
-    },
-    error: function (xhr) {
-      console.error("❌ Sektor əməliyyatı uğursuz oldu:", xhr);
-      Swal.fire({
-        icon: "error",
-        title: "Xəta!",
-        text: xhr.responseJSON?.message || "Xəta baş verdi",
-      });
-    },
-  });
-}
-
-function handleAdminAssignment(e) {
-  e.preventDefault();
-  const form = $(this);
-  const sectorId = form.find('input[name="sector_id"]').val();
-
-  console.log(`👤 Sektor admini təyin edilir. Sektor ID: ${sectorId}`);
-
-  $.ajax({
-    url: sectorConfig.urls.assignAdmin.replace(":sectorId", sectorId),
-    type: "POST",
-    data: form.serialize(),
-    dataType: "json",
-    success: function (response) {
-      console.log("✅ Sektor admini uğurla təyin edildi:", response);
-      sectorAdminModal.hide();
-
-      Swal.fire({
-        icon: "success",
-        title: "Uğurlu!",
-        text: response.message,
-        timer: 1500,
-      }).then(() => {
-        window.location.reload();
-      });
-    },
-    error: function (xhr) {
-      console.error("❌ Sektor admini təyin edilə bilmədi:", xhr);
-      Swal.fire({
-        icon: "error",
-        title: "Xəta!",
-        text: xhr.responseJSON?.message || "Xəta baş verdi",
-      });
-    },
-  });
-}
-
-// Document ready
-$(document).ready(function () {
-  console.log("🚀 Sektor əməliyyatları üçün event listener-lər qurulur");
-
-  // Modalların inizializasiyası
-  initializeModals();
-
-  // Event listener-lərin quraşdırılması
-  $("#sectorModal form").on("submit", handleSectorFormSubmit);
-  $("#sectorAdminModal form").attr(
-      'action',
-      "{{ route('personal.sectors.admin', ':id') }}".replace(':id', sectorId)
-  );
-  console.log("✅ Sektor əməliyyatları hazırdır");
-});
-// ... digər kodlar eyni qalır ...
-
-function showSectorAdminModal(sectorId) {
-    if (!sectorAdminModal) {
-        console.error("❌ Admin modalı tapılmadı");
-        return;
-    }
-
-    // Form action və sector_id-ni təyin et
-    const form = $("#sectorAdminModal form");
-    form.find('#sectorIdInput').val(sectorId);
-    
-    console.log("👤 Sektor admin modalı açılır:", sectorId);
-    sectorAdminModal.show();
-}
-
-function handleAdminAssignment(e) {
+  async submitForm(e) {
     e.preventDefault();
-    const form = $(this);
-    const sectorId = form.find('#sectorIdInput').val();
+    if (!this.form.valid()) return;
 
-    console.log(`👤 Sektor admini təyin edilir. Sektor ID: ${sectorId}`);
-
-    $.ajax({
-        url: `/settings/personal/sectors/${sectorId}/admin`,
+    const sectorId = this.form.find("#sectorIdInput").val();
+    try {
+      const response = await $.ajax({
+        url: sectorConfig.urls.assignAdmin.replace(":id", sectorId),
         type: "POST",
-        data: form.serialize(),
-        headers: {
-            'X-CSRF-TOKEN': window.appConfig.csrfToken
-        },
-        success: function (response) {
-            console.log("✅ Sektor admini uğurla təyin edildi:", response);
-            sectorAdminModal.hide();
+        data: this.form.serialize(),
+        headers: { "X-CSRF-TOKEN": window.appConfig.csrfToken },
+      });
 
-            Swal.fire({
-                icon: "success",
-                title: "Uğurlu!",
-                text: response.message,
-                timer: 1500
-            }).then(() => {
-                window.location.reload();
-            });
-        },
-        error: function (xhr) {
-            console.error("❌ Sektor admini təyin edilə bilmədi:", xhr);
-            Swal.fire({
-                icon: "error",
-                title: "Xəta!",
-                text: xhr.responseJSON?.message || "Xəta baş verdi"
-            });
-        }
+      await this.handleSuccess(response);
+    } catch (error) {
+      this.handleError(error);
+    }
+  },
+
+  async handleSuccess(response) {
+    await Swal.fire({
+      icon: "success",
+      title: "Uğurlu!",
+      text: response.message,
+      timer: 1500,
     });
+    window.location.reload();
+  },
+
+  handleError(error) {
+    const errors = error.responseJSON?.errors || {};
+    Object.entries(errors).forEach(([field, [message]]) => {
+      const input = this.form.find(`[name="${field}"]`);
+      input.addClass("is-invalid").next(".invalid-feedback").text(message);
+    });
+
+    Swal.fire({
+      icon: "error",
+      title: "Xəta!",
+      text: error.responseJSON?.message || "Xəta baş verdi",
+    });
+  },
+};
+
+async function showSectorAdminModal(sectorId) {
+  try {
+    const response = await $.get(
+      sectorConfig.urls.getAdmin.replace(":id", sectorId)
+    );
+    const form = $("#sectorAdminForm");
+    form.find("#sectorIdInput").val(sectorId);
+
+    if (response.admin) {
+      fillAdminForm(response.admin);
+    } else {
+      form[0].reset();
+    }
+
+    const modal = new bootstrap.Modal("#sectorAdminModal");
+    modal.show();
+  } catch (error) {
+    console.error("Admin məlumatları alına bilmədi:", error);
+  }
 }
 
-// Document ready
-$(document).ready(function () {
-    console.log("🚀 Sektor əməliyyatları üçün event listener-lər qurulur");
+function fillAdminForm(admin) {
+  const form = $("#sectorAdminForm");
+  ["first_name", "last_name", "email", "username", "utis_code"].forEach(
+    (field) => {
+      form.find(`[name="${field}"]`).val(admin[field]);
+    }
+  );
+}
 
-    // Modalların inizializasiyası
-    initializeModals();
-
-    // Event listener-lərin quraşdırılması
-    $("#sectorModal form").on("submit", handleSectorFormSubmit);
-    $("#sectorAdminModal form").on("submit", handleAdminAssignment);
-
-    // Admin təyin etmə düyməsi üçün listener
-    $('.assign-admin-btn').on('click', function() {
-        const sectorId = $(this).data('sector-id');
-        showSectorAdminModal(sectorId);
-    });
-
-    console.log("✅ Sektor əməliyyatları hazırdır");
+$(document).ready(() => {
+  sectorAdminForm.init();
+  $(".assign-admin-btn").on("click", function () {
+    const sectorId = $(this).data("sector-id");
+    showSectorAdminModal(sectorId);
+  });
 });

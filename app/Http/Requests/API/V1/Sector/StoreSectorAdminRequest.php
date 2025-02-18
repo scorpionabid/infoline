@@ -14,23 +14,31 @@ class StoreSectorAdminRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string|max:255',
-            'username' => 'required|unique:users,username',
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required|min:6',
+            'username' => 'required|unique:users,username|alpha_dash|max:50',
+            'password' => 'required|min:8',
+            'utis_code' => 'required|string|size:7|unique:users',
             'sector_id' => 'required|exists:sectors,id'
         ];
     }
 
     public function messages(): array
     {
-        return [
-            'name.required' => 'Ad daxil edilməlidir',
-            'username.required' => 'İstifadəçi adı daxil edilməlidir',
-            'username.unique' => 'Bu istifadəçi adı artıq mövcuddur',
+        return [    
+            'first_name.required' => 'Ad daxil edilməlidir',
+            'last_name.required' => 'Soyad daxil edilməlidir',
             'email.required' => 'Email daxil edilməlidir',
             'email.unique' => 'Bu email artıq istifadə olunub',
+            'username.required' => 'İstifadəçi adı daxil edilməlidir',
+            'username.unique' => 'Bu istifadəçi adı artıq mövcuddur',
+            'username.alpha_dash' => 'Istifadəçi adı sadece alfanumerik və - və _ simvollarından ibarət olmalıdır',
             'password.required' => 'Şifrə daxil edilməlidir',
+            'password.min' => 'Şifrə 8 rəqəmdən az olmamalıdır',
+            'utis_code.required' => 'UTİS kodu daxil edilməlidir',
+            'utis_code.size' => 'UTİS kodu 7 rəqəmdən ibarət olmalıdır',
+            'utis_code.unique' => 'Bu UTİS kodu artıq istifadə olunub',
             'sector_id.required' => 'Sektor seçilməlidir',
             'sector_id.exists' => 'Seçilmiş sektor mövcud deyil'
         ];

@@ -35,14 +35,19 @@
                                <td>{{ $sector->name }}</td>
                                <td>{{ $sector->phone }}</td>
                                <td>{{ $sector->schools_count }}</td>
+                               <!-- Admin hissəsinə əlavələr -->
+                                <td>
+                                    @if($sector->admin)
+                                        <div class="d-flex align-items-center">
+                                           {{ $sector->admin->full_name }}
+                                            <span class="badge bg-success ms-2">Aktiv</span>
+                                        </div>
+                                        <small class="text-muted">{{ $sector->admin->email }}</small>
+                                    @else
+                                        <span class="badge bg-warning">Admin təyin edilməyib</span>
+                                    @endif
+                                </td>
                                <td>
-                                   @if($sector->admin)
-                                       {{ $sector->admin->name }}
-                                   @else
-                                       <span class="badge bg-warning">Admin təyin edilməyib</span>
-                                   @endif
-                               </td>
-                               <<td>
                                     <div class="btn-group">
                                         <button class="btn btn-sm btn-outline-primary" 
                                                 onclick="editSector({{ $sector->id }})"
@@ -53,6 +58,8 @@
         <!-- Yeni admin təyinat düyməsi -->
                                         <button class="btn btn-sm btn-outline-warning assign-admin-btn" 
                                             data-sector-id="{{ $sector->id }}"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#sectorAdminModal">
                                             <i class="fas fa-user-plus"></i>
                                         </button>
 
@@ -61,6 +68,7 @@
                                                 onclick="deleteSector({{ $sector->id }})">
                                             <i class="fas fa-trash"></i>
                                         </button>
+                                        
                                         @endif
                                     </div>
                                 </td>
@@ -77,63 +85,3 @@
 
 @include('pages.settings.personal.modals.sector-admin-modal')
 @include('pages.settings.personal.modals.sector-modal')
-@push('scripts')
-<script>
-$(document).ready(function() {
-    // Admin təyin etmə düyməsinə click handler
-    $(".assign-admin-btn").on("click", function() {
-        const sectorId = $(this).data("sector-id");
-        const modal = $("#sectorAdminModal");
-        const form = modal.find("form");
-        
-        // Form action və sector_id-ni təyin et
-        form.attr('action', form.attr('action').replace(':id', sectorId));
-        form.find('#sectorIdInput').val(sectorId);
-        
-        // Modalı göstər
-        modal.modal('show');
-    });
-
-    // Form submit handler
-    $("#sectorAdminForm").on("submit", function(e) {
-        e.preventDefault();
-        const form = $(this);
-
-        $.ajax({
-            url: form.attr('action'),
-            type: 'POST',
-            data: form.serialize(),
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            },
-            success: function(response) {
-                $("#sectorAdminModal").modal('hide');
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Uğurlu!',
-                    text: response.message || 'Sektor admini uğurla təyin edildi'
-                }).then(() => {
-                    location.reload();
-                });
-            },
-            error: function(xhr) {
-                const errorMessage = xhr.responseJSON?.message || 'Xəta baş verdi';
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Xəta!',
-                    text: errorMessage
-                });
-
-                // Xətanı console-da göstər
-                console.error("Sektor admin təyinatı xətası:", xhr);
-            }
-        });
-    });
-
-    // Modal bağlandıqda formu sıfırla
-    $("#sectorAdminModal").on('hidden.bs.modal', function() {
-        $(this).find('form')[0].reset();
-    });
-});
-</script>
-@endpush
