@@ -1,87 +1,289 @@
-@extends('pages.settings.personal.index')
+@extends('layouts.app')
 
-@section('tab-content')
-<div class="row">
-   <div class="col-12 mb-4">
-       <div class="card">
-           <div class="card-header d-flex justify-content-between align-items-center">
-               <h5 class="mb-0">Sektorlar</h5>
-               <div>
-                   <button class="btn btn-warning me-2" data-bs-toggle="modal" data-bs-target="#sectorAdminModal">
-                       <i class="fas fa-user-plus"></i> Sektor admini əlavə et
-                   </button>
-                   <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#sectorModal">
-                       <i class="fas fa-plus"></i> Sektor əlavə et
-                   </button>
-               </div>
-           </div>
-           <div class="card-body">
-               <div class="table-responsive">
-                   <table class="table table-hover">
-                       <thead>
-                           <tr>
-                               <th>Region</th>
-                               <th>Sektor adı</th>
-                               <th>Telefon</th>
-                               <th>Məktəb sayı</th>
-                               <th>Admin</th>
-                               <th>Əməliyyatlar</th>
-                           </tr>
-                       </thead>
-                       <tbody>
-                           @foreach($sectors as $sector)
-                           <tr>
-                               <td>{{ $sector->region->name }}</td>
-                               <td>{{ $sector->name }}</td>
-                               <td>{{ $sector->phone }}</td>
-                               <td>{{ $sector->schools_count }}</td>
-                               <!-- Admin hissəsinə əlavələr -->
-                                <td>
-                                    @if($sector->admin)
-                                        <div class="d-flex align-items-center">
-                                           {{ $sector->admin->full_name }}
-                                            <span class="badge bg-success ms-2">Aktiv</span>
-                                        </div>
-                                        <small class="text-muted">{{ $sector->admin->email }}</small>
-                                    @else
-                                        <span class="badge bg-warning">Admin təyin edilməyib</span>
-                                    @endif
-                                </td>
-                               <td>
-                                    <div class="btn-group">
-                                        <button class="btn btn-sm btn-outline-primary" 
-                                                onclick="editSector({{ $sector->id }})"
-                                                type="button">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-        
-        <!-- Yeni admin təyinat düyməsi -->
-                                        <button class="btn btn-sm btn-outline-warning assign-admin-btn" 
-                                            data-sector-id="{{ $sector->id }}"
-                                            data-bs-toggle="modal" 
-                                            data-bs-target="#sectorAdminModal">
-                                            <i class="fas fa-user-plus"></i>
-                                        </button>
+@section('title', 'Sektor İdarəetməsi')
 
-                                        @if($sector->schools_count == 0)
-                                        <button class="btn btn-sm btn-outline-danger" 
-                                                onclick="deleteSector({{ $sector->id }})">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                        
-                                        @endif
-                                    </div>
-                                </td>
-                           </tr>
-                           @endforeach
-                       </tbody>
-                   </table>
-               </div>
-           </div>
-       </div>
-   </div>
+@section('content')
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="page-title-box">
+                <div class="page-title-right">
+                    <ol class="breadcrumb m-0">
+                        <li class="breadcrumb-item"><a href="{{ route('dashboard.index') }}">Panel</a></li>
+                        <li class="breadcrumb-item"><a href="{{ route('settings.index') }}">Tənzimləmələr</a></li>
+                        <li class="breadcrumb-item active">Sektor İdarəetməsi</li>
+                    </ol>
+                </div>
+                <h4 class="page-title">Sektor İdarəetməsi</h4>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="card-title mb-0">Ümumi Sektorlar</h5>
+                        <i class="fas fa-building text-muted"></i>
+                    </div>
+                    <h2 class="mb-2">{{ $totalSectors }}</h2>
+                    <p class="text-muted mb-0">Bütün regionlar üzrə</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="card-title mb-0">Aktiv Adminlər</h5>
+                        <i class="fas fa-user-shield text-muted"></i>
+                    </div>
+                    <h2 class="mb-2">{{ $activeAdmins }}</h2>
+                    <p class="text-muted mb-0">Sektor adminləri</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="card-title mb-0">Məktəblər</h5>
+                        <i class="fas fa-school text-muted"></i>
+                    </div>
+                    <h2 class="mb-2">{{ $totalSchools }}</h2>
+                    <p class="text-muted mb-0">Bütün sektorlar üzrə</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Sektorlar</h5>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-secondary" id="exportExcel">
+                            <i class="fas fa-file-excel me-1"></i> Export
+                        </button>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#sectorModal">
+                            <i class="fas fa-plus me-1"></i> Yeni Sektor
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Filters -->
+                    <div class="row mb-3">
+                        <div class="col-md-3">
+                            <select class="form-select select2" id="regionFilter">
+                                <option value="">Region seçin</option>
+                                @foreach($regions as $region)
+                                    <option value="{{ $region->id }}">{{ $region->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select select2" id="adminFilter">
+                                <option value="">Admin statusu</option>
+                                <option value="with_admin">Adminli</option>
+                                <option value="without_admin">Adminsiz</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Table -->
+                    <div class="table-responsive">
+                        <table class="table table-centered w-100 dt-responsive nowrap" id="sectors-datatable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Sektor</th>
+                                    <th>Region</th>
+                                    <th>Məktəb Sayı</th>
+                                    <th>Admin</th>
+                                    <th>Status</th>
+                                    <th>Əməliyyatlar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<!-- Add/Edit Sector Modal -->
+<div class="modal fade" id="sectorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sectorModalLabel">Yeni Sektor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="sectorForm">
+                <div class="modal-body">
+                    <input type="hidden" id="sectorId">
+                    <div class="mb-3">
+                        <label class="form-label">Region</label>
+                        <select class="form-select select2" name="region_id" id="region_id" required>
+                            <option value="">Seçin</option>
+                            @foreach($regions as $region)
+                                <option value="{{ $region->id }}">{{ $region->name }}</option>
+                            @endforeach
+                        </select>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sektor adı</label>
+                        <input type="text" class="form-control" name="name" id="name" required>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Telefon</label>
+                        <input type="text" class="form-control" name="phone" id="phone" required>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bağla</button>
+                    <button type="submit" class="btn btn-primary" id="saveSector">
+                        <span class="spinner-border spinner-border-sm d-none me-1"></span>
+                        Yadda saxla
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Admin Assignment Modal -->
+<div class="modal fade" id="adminModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Admin Təyin Et</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="adminForm">
+                <div class="modal-body">
+                    <input type="hidden" id="adminSectorId">
+                    <div class="mb-3">
+                        <label class="form-label">Ad Soyad</label>
+                        <input type="text" class="form-control" name="full_name" id="admin_name" required>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" id="admin_email" required>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Telefon</label>
+                        <input type="text" class="form-control" name="phone" id="admin_phone" required>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="sendCredentials" checked>
+                        <label class="form-check-label">Giriş məlumatlarını email ilə göndər</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bağla</button>
+                    <button type="submit" class="btn btn-primary" id="saveAdmin">
+                        <span class="spinner-border spinner-border-sm d-none me-1"></span>
+                        Təyin et
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @endsection
 
-@include('pages.settings.personal.modals.sector-admin-modal')
-@include('pages.settings.personal.modals.sector-modal')
+@push('css')
+<link href="{{ asset('assets/libs/datatables/dataTables.bootstrap5.min.css') }}" rel="stylesheet">
+<link href="{{ asset('assets/libs/datatables/responsive.bootstrap5.min.css') }}" rel="stylesheet">
+<link href="{{ asset('assets/libs/select2/select2.min.css') }}" rel="stylesheet">
+@endpush
+
+@push('scripts')
+<script src="{{ asset('assets/libs/datatables/jquery.dataTables.min.js') }}"></script>
+<script src="{{ asset('assets/libs/datatables/dataTables.bootstrap5.min.js') }}"></script>
+<script src="{{ asset('assets/libs/datatables/dataTables.responsive.min.js') }}"></script>
+<script src="{{ asset('assets/libs/select2/select2.min.js') }}"></script>
+<script src="{{ asset('js/settings/sector.js') }}"></script>
+<script>
+    // DataTable konfiqurasiyası
+    $('#sectors-datatable').DataTable({
+        processing: true,
+        serverSide: true,
+        ajax: {
+            url: '{{ route("settings.personal.sectors.data") }}',
+            data: function(d) {
+                d.region = $('#regionFilter').val();
+                d.admin_status = $('#adminFilter').val();
+            }
+        },
+        columns: [
+            {data: 'name', name: 'name'},
+            {data: 'region.name', name: 'region.name'},
+            {data: 'schools_count', name: 'schools_count'},
+            {
+                data: 'admin',
+                name: 'admin.full_name',
+                render: function(data) {
+                    if (data) {
+                        return `<span class="badge bg-success">${data.full_name}</span>`;
+                    }
+                    return '<span class="badge bg-warning">Təyin edilməyib</span>';
+                }
+            },
+            {
+                data: 'status',
+                name: 'status',
+                render: function(data) {
+                    return data ? 
+                        '<span class="badge bg-success">Aktiv</span>' : 
+                        '<span class="badge bg-danger">Deaktiv</span>';
+                }
+            },
+            {
+                data: null,
+                orderable: false,
+                searchable: false,
+                render: function(data) {
+                    let buttons = `
+                        <a href="/settings/personal/sectors/${data.id}/edit" class="btn btn-sm btn-primary">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <button class="btn btn-sm btn-danger delete-sector" data-id="${data.id}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    `;
+                    
+                    if (!data.admin) {
+                        buttons += `
+                            <button class="btn btn-sm btn-success assign-admin-btn" data-id="${data.id}">
+                                <i class="fas fa-user-shield"></i>
+                            </button>
+                        `;
+                    }
+                    
+                    return buttons;
+                }
+            }
+        ],
+        order: [[0, 'asc']],
+        language: {
+            url: '/assets/libs/datatables/i18n/az.json'
+        }
+    });
+</script>
+@endpush

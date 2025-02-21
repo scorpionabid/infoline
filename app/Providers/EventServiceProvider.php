@@ -18,6 +18,11 @@ use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Laravel\Sanctum\Events\TokenAuthenticated;
 use App\Listeners\LogTokenAuthentication;
 
+use App\Events\Auth\FailedLoginAttemptEvent;
+use App\Events\Auth\PasswordResetEvent;
+use App\Listeners\Auth\HandleFailedLogin;
+use App\Listeners\Auth\LogPasswordReset;
+
 class EventServiceProvider extends ServiceProvider
 {
     /**
@@ -42,6 +47,14 @@ class EventServiceProvider extends ServiceProvider
         // Sanctum Token Events
         TokenAuthenticated::class => [
             LogTokenAuthentication::class,
+        ],
+        
+        FailedLoginAttemptEvent::class => [
+            HandleFailedLogin::class,
+        ],
+        
+        PasswordResetEvent::class => [
+            LogPasswordReset::class,
         ],
     ];
 

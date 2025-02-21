@@ -4,15 +4,44 @@ namespace App\Http\Controllers\Settings\Personal;
 
 use App\Http\Controllers\Controller;
 use App\Domain\Entities\Region;
-use App\Domain\Entities\Sector;
+use App\Domain\Entities\User;
+use App\Services\RegionService;
+use App\Http\Requests\Settings\Region\StoreRegionRequest;
+use App\Http\Requests\Settings\Region\UpdateRegionRequest;
+use App\Http\Requests\Settings\Region\StoreRegionAdminRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Yajra\DataTables\Facades\DataTables;
 
 class RegionManagementController extends Controller
 {
+    protected $regionService;
+
+    public function __construct(RegionService $regionService)
+    {
+        $this->regionService = $regionService;
+    }
+
     public function index()
     {
-        $regions = Region::withCount(['sectors', 'schools'])->paginate(20);
-        return view('pages.settings.personal.regions.index', compact('regions'));
+        return view('pages.settings.personal.regions.index');
+    }
+
+    public function data()
+    {
+        $regions = Region::with(['admin'])
+            ->withCount(['sectors', 'schools'])
+            ->select('regions.*');
+
+        return DataTables::of($regions)
+            ->addColumn('admin', function ($region) {
+                return $region->admin;
+            })
+            ->addColumn('actions', function ($region) {
+                return view('pages.settings.personal.regions.actions', compact('region'));
+            })
+            ->rawColumns(['actions'])
+            ->make(true);
     }
 
     public function create()
@@ -20,173 +49,101 @@ class RegionManagementController extends Controller
         return view('pages.settings.personal.regions.create');
     }
 
-    public function store(Request $request)
+    public function store(StoreRegionRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|unique:regions|max:255',
-            'phone' => 'nullable|unique:regions|max:20',
-            'code' => 'nullable|unique:regions|max:50',
-            'description' => 'nullable|max:500'
-        ]);
+        try {
+            $region = Region::create($request->validated());
 
-        $region = Region::create($validated);
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Region uğurla yaradıldı',
+                    'region' => $region
+                ]);
+            }
 
-        if ($request->ajax()) {
+            return redirect()
+                ->route('settings.personal.regions.index')
+                ->with('success', 'Region uğurla yaradıldı');
+        } catch (\Exception $e) {
             return response()->json([
-                'success' => true,
-                'message' => 'Region uğurla yaradıldı',
-                'region' => $region
-            ]);
+                'success' => false,
+                'message' => 'Xəta baş verdi: ' . $e->getMessage()
+            ], 500);
         }
-
-        return redirect()
-            ->route('settings.personal.regions.index')
-            ->with('success', 'Region uğurla yaradıldı');
     }
 
     public function edit(Region $region)
     {
+        $statistics = $this->regionService->getStatistics($region);
+        
         if (request()->ajax()) {
             return response()->json([
                 'success' => true,
-                'region' => $region->toArray()
+                'region' => $region,
+                'statistics' => $statistics
             ]);
         }
 
-        return view('pages.settings.personal.regions.edit', compact('region'));
+        return view('pages.settings.personal.regions.edit', compact('region', 'statistics'));
     }
 
-    public function update(Request $request, Region $region)
+    public function update(UpdateRegionRequest $request, Region $region)
     {
-        $validated = $request->validate([
-            'name' => 'required|max:255|unique:regions,name,' . $region->id,
-            'phone' => 'nullable|max:20|unique:regions,phone,' . $region->id,
-            'code' => 'nullable|max:50|unique:regions,code,' . $region->id,
-            'description' => 'nullable|max:500'
-        ]);
+        try {
+            $region->update($request->validated());
 
-        $region->update($validated);
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Region məlumatları yeniləndi',
+                    'region' => $region
+                ]);
+            }
 
-        if ($request->ajax()) {
+            return redirect()
+                ->route('settings.personal.regions.index')
+                ->with('success', 'Region məlumatları yeniləndi');
+        } catch (\Exception $e) {
             return response()->json([
-                'success' => true,
-                'message' => 'Region məlumatları yeniləndi',
-                'region' => $region
-            ]);
+                'success' => false,
+                'message' => 'Xəta baş verdi: ' . $e->getMessage()
+            ], 500);
         }
-
-        return redirect()
-            ->route('settings.personal.regions.index')
-            ->with('success', 'Region məlumatları yeniləndi');
     }
 
     public function destroy(Region $region)
     {
         try {
-            // Sektorların yoxlanması
             if ($region->sectors()->count() > 0) {
-                $message = 'Bu regionda sektorlar var. Əvvəlcə sektorları silin.';
-                
-                if (request()->ajax()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => $message
-                    ], 422);
-                }
-                
-                return back()->with('error', $message);
+                throw new \Exception('Bu regionda sektorlar var. Əvvəlcə sektorları silin.');
             }
 
             $region->delete();
 
-            if (request()->ajax()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Region silindi'
-                ]);
-            }
-
-            return back()->with('success', 'Region silindi');
-
-        } catch (\Exception $e) {
-            $message = 'Xəta baş verdi: ' . $e->getMessage();
-            
-            if (request()->ajax()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $message
-                ], 500);
-            }
-            
-            return back()->with('error', $message);
-        }
-    }
-
-    public function addSector(Request $request, Region $region)
-    {
-        $validated = $request->validate([
-            'sector_id' => 'required|exists:sectors,id|unique:sectors,region_id'
-        ]);
-
-        try {
-            $sector = Sector::findOrFail($validated['sector_id']);
-            $sector->update(['region_id' => $region->id]);
-
-            if ($request->ajax()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Sektor regiona əlavə edildi',
-                    'sector' => $sector
-                ]);
-            }
-
-            return back()->with('success', 'Sektor regiona əlavə edildi');
-
-        } catch (\Exception $e) {
-            $message = 'Xəta baş verdi: ' . $e->getMessage();
-            
-            if ($request->ajax()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $message
-                ], 500);
-            }
-            
-            return back()->with('error', $message);
-        }
-    }
-
-    public function assignAdmin(Request $request, Region $region)
-    {
-        $validated = $request->validate([
-            'admin_id' => 'required|exists:users,id'
-        ]);
-
-        try {
-            $region->update([
-                'admin_id' => $validated['admin_id']
+            return response()->json([
+                'success' => true,
+                'message' => 'Region uğurla silindi'
             ]);
-
-            if ($request->ajax()) {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Regiona admin təyin edildi'
-                ]);
-            }
-
-            return back()->with('success', 'Regiona admin təyin edildi');
-
         } catch (\Exception $e) {
-            $message = 'Xəta baş verdi: ' . $e->getMessage();
-            
-            if ($request->ajax()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => $message
-                ], 500);
-            }
-            
-            return back()->with('error', $message);
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
         }
+    }
+
+    public function assignAdmin(StoreRegionAdminRequest $request, Region $region)
+    {
+        $result = $this->regionService->updateAdmin($region, $request->validated());
+        
+        return response()->json($result, $result['success'] ? 200 : 422);
+    }
+
+    public function removeAdmin(Region $region)
+    {
+        $result = $this->regionService->removeAdmin($region);
+        
+        return response()->json($result, $result['success'] ? 200 : 422);
     }
 }

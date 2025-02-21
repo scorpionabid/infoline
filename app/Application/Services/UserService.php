@@ -68,4 +68,14 @@ class UserService
 
         return $this->repository->update($id, $userData);
     }
+
+    public function deactivateUser(int $id): User
+    {
+        $user = $this->repository->getById($id);
+        if (!$user) {
+            throw new InvalidArgumentException("İstifadəçi tapılmadı");
+        }
+
+        return $this->repository->update($id, ['is_active' => false]);
+    }
 }

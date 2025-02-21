@@ -1,7 +1,7 @@
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
    <div class="container-fluid">
        <!-- Brand -->
-       <a class="navbar-brand" href="{{ route('dashboard') }}">
+       <a class="navbar-brand" href="{{ route('dashboard.index') }}">
            {{ config('app.name') }}
        </a>
 
@@ -9,7 +9,7 @@
        <div class="navbar-nav me-auto">
            <!-- Dashboard -->
            <a class="nav-link {{ request()->routeIs('dashboard.*') ? 'active' : '' }}" 
-              href="{{ route('dashboard') }}">
+              href="{{ route('dashboard.index') }}">
                <i class="fas fa-home"></i> Dashboard
            </a>
            
@@ -66,8 +66,8 @@
                <ul class="dropdown-menu dropdown-menu-end">
                    <li>
                        <a class="dropdown-item {{ request()->routeIs('profile.*') ? 'active' : '' }}"
-                          href="{{ route('profile') }}">
-                           <i class="fas fa-id-card"></i> Profil
+                          href="{{ route('profile.index') }}">
+                           <i class="fas fa-user"></i> Profil
                        </a>
                    </li>
                    <li><hr class="dropdown-divider"></li>

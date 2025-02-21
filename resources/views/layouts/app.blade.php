@@ -47,11 +47,7 @@
    <!-- App JS -->
    <script src="{{ asset('js/app.js') }}"></script>
    
-   <!-- Settings JS -->
-   <script src="{{ asset('js/settings/table.js') }}"></script>
-   <script src="{{ asset('js/settings/regions.js') }}"></script>
-   <script src="{{ asset('js/settings/sector.js') }}"></script>
-   
+   <!-- Page Specific Scripts -->
    @stack('scripts')
 
    <!-- Flash Messages -->

@@ -4,10 +4,15 @@ namespace App\Application\Services;
 
 use App\Application\DTOs\SectorDTO;
 use App\Application\DTOs\UserDTO;
+use App\Domain\Entities\Permission;
+use App\Domain\Entities\Role;
 use App\Domain\Entities\Sector;
+use App\Domain\Entities\User;
 use App\Domain\Enums\UserType;
+use App\Exceptions\SectorAdminUpdateException;
 use App\Infrastructure\Repositories\SectorRepository;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
 class SectorService
@@ -99,6 +104,8 @@ class SectorService
        }
    }
 
+
+
    public function getSectorAdmins(?int $regionId = null): array
    {
        $query = ['type' => UserType::SECTOR_ADMIN->value];
@@ -115,50 +122,168 @@ class SectorService
     * @param UserDTO $userDTO
     * @return Sector
     */
-   public function updateSectorAdmin(int $sectorId, UserDTO $userDTO): Sector
+   /**
+    * Sektor üçün yeni admin təyin et və ya mövcud admini yenilə
+    *
+    * @param int $sectorId Sektor ID
+    * @param UserDTO $userDTO İstifadəçi məlumatları
+    * @return array Sektor və admin məlumatları
+    * @throws SectorAdminUpdateException
+    * @throws InvalidArgumentException
+    */
+   public function updateSectorAdmin(int $sectorId, UserDTO $userDTO): array
    {
+       // Request validation
+       $validationErrors = $userDTO->validate();
+       if (!empty($validationErrors)) {
+           Log::warning('Sektor admin DTO validasiya xətası', [
+               'sector_id' => $sectorId,
+               'errors' => $validationErrors
+           ]);
+           throw new InvalidArgumentException('Validasiya xətası: ' . json_encode($validationErrors));
+       }
+
        DB::beginTransaction();
        try {
+           Log::info('Sektor admin yeniləməsi başladı', [
+               'sector_id' => $sectorId,
+               'user_data' => array_diff_key($userDTO->toArray(), ['password' => ''])
+           ]);
+
+           // Sektoru yoxla
            $sector = $this->getById($sectorId);
            if (!$sector) {
-               throw new InvalidArgumentException('Sektor tapılmadı');
+               throw new InvalidArgumentException("Sektor tapılmadı: {$sectorId}");
            }
 
-           // Köhnə admini deaktiv et və rollarını sil
+           // Köhnə admini yoxla və deaktiv et
            if ($sector->admin_id) {
-               $oldAdmin = $this->userService->getById($sector->admin_id);
-               if ($oldAdmin) {
-                   $oldAdmin->deactivate();
-                   $oldAdmin->roles()->detach();
-                   $this->removeAdminRoles($oldAdmin, $sector);
-               }
+               $this->deactivateOldAdmin($sector->admin_id);
            }
 
-           // Yeni admin
-           $userDTO->type = UserType::SECTOR_ADMIN->value;
-           $userDTO->sector_id = $sectorId;
-           
-           $admin = $sector->admin_id ? 
-               $this->userService->updateUser($sector->admin_id, $userDTO) :
-               $this->userService->createUser($userDTO);
+           // Yeni admin yarat
+           $admin = $this->createNewAdmin($userDTO, $sector);
 
-           // Sektor-admin rollarını və əlaqəni təyin et
-           $this->assignAdminRoles($admin, $sector);
-           
-           // Sektora admin təyin et
-           $sector->admin_id = $admin->id;
-           $this->repository->update($sectorId, ['admin_id' => $admin->id]);
+           // Sektoru yenilə
+           $updatedSector = $this->updateSectorWithNewAdmin($sector, $admin);
 
-           // Sector admin history
-           $this->createAdminHistory($sector, $admin);
-
+           // Commit və log
            DB::commit();
-           return $sector;
+           Log::info('Sektor admin yeniləməsi uğurla tamamlandı', [
+               'sector_id' => $sectorId,
+               'admin_id' => $admin->id,
+               'sector' => $updatedSector->toArray()
+           ]);
+
+           return [
+               'success' => true,
+               'sector' => $updatedSector,
+               'admin' => $admin,
+               'message' => 'Sektor admini uğurla təyin edildi'
+           ];
 
        } catch (\Exception $e) {
            DB::rollBack();
+           $this->logError('Sektor admin yeniləməsi xətası', $e, [
+               'sector_id' => $sectorId,
+               'user_dto' => $userDTO->toArray()
+           ]);
            throw new SectorAdminUpdateException($e->getMessage());
        }
+   }
+
+   /**
+    * Köhnə admini deaktiv et
+    */
+   private function deactivateOldAdmin(int $adminId): void
+   {
+       try {
+           $oldAdmin = $this->userService->getById($adminId);
+           if ($oldAdmin) {
+               Log::info('Köhnə admin deaktiv edilir', ['admin_id' => $adminId]);
+               $oldAdmin->deactivate();
+               $oldAdmin->roles()->detach();
+               Log::info('Köhnə admin deaktiv edildi', ['admin_id' => $adminId]);
+           }
+       } catch (\Exception $e) {
+           Log::warning('Köhnə admin deaktiv edilərkən xəta', [
+               'admin_id' => $adminId,
+               'error' => $e->getMessage()
+           ]);
+           throw $e;
+       }
+   }
+
+   /**
+    * Yeni admin yarat
+    */
+   private function createNewAdmin(UserDTO $userDTO, Sector $sector): User
+   {
+       try {
+           Log::info('Yeni admin yaradılır', [
+               'sector_id' => $sector->id,
+               'user_type' => $userDTO->user_type
+           ]);
+
+           $admin = $this->userService->createUser($userDTO);
+           $this->assignAdminRoles($admin, $sector);
+
+           Log::info('Yeni admin yaradıldı', [
+               'admin_id' => $admin->id,
+               'sector_id' => $sector->id
+           ]);
+
+           return $admin;
+       } catch (\Exception $e) {
+           Log::error('Yeni admin yaradılarkən xəta', [
+               'sector_id' => $sector->id,
+               'error' => $e->getMessage()
+           ]);
+           throw $e;
+       }
+   }
+
+   /**
+    * Sektoru yeni adminlə yenilə
+    */
+   private function updateSectorWithNewAdmin(Sector $sector, User $admin): Sector
+   {
+       try {
+           $updateData = ['admin_id' => $admin->id];
+           $updatedSector = $this->repository->update($sector->id, $updateData);
+           
+           // Admin history
+           $this->createAdminHistory($updatedSector, $admin);
+
+           Log::info('Sektor admin ilə yeniləndi', [
+               'sector_id' => $sector->id,
+               'admin_id' => $admin->id
+           ]);
+
+           return $updatedSector;
+       } catch (\Exception $e) {
+           Log::error('Sektor yenilənərkən xəta', [
+               'sector_id' => $sector->id,
+               'admin_id' => $admin->id,
+               'error' => $e->getMessage()
+           ]);
+           throw $e;
+       }
+   }
+
+   /**
+    * Xətaları loqla
+    */
+   private function logError(string $message, \Exception $e, array $context = []): void
+   {
+       $errorContext = array_merge($context, [
+           'error' => $e->getMessage(),
+           'trace' => $e->getTraceAsString(),
+           'file' => $e->getFile(),
+           'line' => $e->getLine()
+       ]);
+
+       Log::error($message, $errorContext);
    }
 
    private function assignAdminRoles(User $admin, Sector $sector): void 

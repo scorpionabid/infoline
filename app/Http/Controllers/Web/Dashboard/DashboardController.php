@@ -19,11 +19,11 @@ class DashboardController extends Controller
         $user = Auth::user();
         
         if ($user->isSuperAdmin()) {
-            return $this->superAdmin();
+            return redirect()->route('dashboard.super-admin');
         } elseif ($user->isSectorAdmin()) {
-            return $this->sectorAdmin();
+            return redirect()->route('dashboard.sector-admin');
         } else {
-            return $this->schoolAdmin();
+            return redirect()->route('dashboard.school-admin');
         }
     }
 

@@ -32,7 +32,7 @@ class UserDTO extends BaseDTO
             username: $request->username,
             password: $request->password ? Hash::make($request->password) : null,
             utis_code: $request->utis_code,
-            user_type: UserType::SECTOR_ADMIN->value,
+            user_type: $request->user_type,  // birbaşa "sectoradmin" kimi
             sector_id: $request->sector_id,
             is_active: true,
             roles: ['sector-admin']
@@ -42,12 +42,14 @@ class UserDTO extends BaseDTO
     private static function validate($request): void
     {
         $rules = [
-            'name' => 'required|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
             'username' => 'required|unique:users,username|alpha_dash|max:50',
-            'password' => 'nullable|min:8',
-            'user_type' => 'required|in:super_admin,school_admin,sector_admin',
-            'sector_id' => 'nullable|exists:sectors,id',
-            'is_active' => 'boolean'
+            'password' => 'required|min:8',
+            'utis_code' => 'required|string|size:7',
+            'user_type' => 'required|in:superadmin,schooladmin,sectoradmin',
+            'sector_id' => 'required|exists:sectors,id'
         ];
 
         $validator = validator($request->all(), $rules);
@@ -61,12 +63,30 @@ class UserDTO extends BaseDTO
     {
         return [
             'id' => $this->id,
-            'name' => $this->name,
+            'first_name' => $this->first_name,
+            'last_name' => $this->last_name,
+            'email' => $this->email,
             'username' => $this->username,
+            'password' => $this->password,
+            'utis_code' => $this->utis_code,
             'user_type' => $this->user_type,
             'sector_id' => $this->sector_id,
             'is_active' => $this->is_active,
             'roles' => $this->roles
+        ];
+    }
+    // UserDTO.php
+    public static function rules(): array
+    {
+        return [
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'username' => 'required|unique:users,username|alpha_dash|max:50',
+            'password' => 'required|min:8',
+            'utis_code' => 'required|string|size:7',
+            'user_type' => 'required|string|in:sectoradmin',  // sadəcə sectoradmin
+            'sector_id' => 'required|exists:sectors,id'
         ];
     }
 }

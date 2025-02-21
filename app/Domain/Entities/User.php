@@ -9,10 +9,12 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Cache;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -70,10 +72,20 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
-        'user_type' => UserType::class,
         'last_login_at' => 'datetime',
-        'is_active' => 'boolean'
+        'user_type' => 'string',
+        'is_active' => 'boolean',
+        'region_id' => 'integer',
+        'sector_id' => 'integer',
+        'school_id' => 'integer'
     ];
+
+    /**
+     * The relationships that should be eager loaded.
+     *
+     * @var array
+     */
+    protected $with = ['roles', 'permissions'];
 
     /**
      * Relationship: Region
@@ -106,13 +118,64 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Relationship: Roles
+     * Get the roles that belong to the user.
      *
-     * @return BelongsToMany
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
      */
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'user_roles');
+    }
+
+    /**
+     * Check if user has the given role.
+     *
+     * @param string $role
+     * @return bool
+     */
+    public function hasRole($role): bool
+    {
+        return $this->roles->contains('slug', $role);
+    }
+
+    /**
+     * Get all permissions via roles.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
+     */
+    public function permissions()
+    {
+        return $this->hasManyThrough(
+            Permission::class,
+            Role::class,
+            'id', // Role table foreign key
+            'id', // Permission table foreign key
+            'id', // User table local key
+            'id'  // Role table local key
+        )
+        ->join('role_permissions', function($join) {
+            $join->on('permissions.id', '=', 'role_permissions.permission_id')
+                 ->on('roles.id', '=', 'role_permissions.role_id');
+        })
+        ->join('user_roles', function($join) {
+            $join->on('roles.id', '=', 'user_roles.role_id')
+                 ->where('user_roles.user_id', '=', $this->id);
+        })
+        ->select('permissions.*')
+        ->distinct();
+    }
+
+    /**
+     * Check if user has a specific permission.
+     *
+     * @param string $permission
+     * @return bool
+     */
+    public function hasPermission(string $permission): bool
+    {
+        return Cache::remember('user_permission_'.$this->id.'_'.$permission, 60, function () use ($permission) {
+            return $this->permissions()->where('permissions.slug', $permission)->exists();
+        });
     }
 
     /**
@@ -123,17 +186,6 @@ class User extends Authenticatable implements MustVerifyEmail
     public function notifications(): HasMany
     {
         return $this->hasMany(Notification::class);
-    }
-
-    /**
-     * Set password attribute with hashing.
-     *
-     * @param string $value
-     * @return void
-     */
-    public function setPasswordAttribute($value)
-    {
-        $this->attributes['password'] = Hash::make($value);
     }
 
     /**
@@ -153,7 +205,7 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function isSuperAdmin(): bool
     {
-        return $this->user_type === UserType::SUPER_ADMIN;
+        return $this->user_type === 'superadmin';
     }
 
     /**
@@ -163,7 +215,7 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function isSectorAdmin(): bool
     {
-        return $this->user_type === UserType::SECTOR_ADMIN;
+        return $this->user_type === 'sector-admin';
     }
 
     /**
@@ -173,7 +225,7 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function isSchoolAdmin(): bool
     {
-        return $this->user_type === UserType::SCHOOL_ADMIN;
+        return $this->user_type === 'school-admin';
     }
 
     /**
@@ -194,34 +246,6 @@ class User extends Authenticatable implements MustVerifyEmail
     public function canCreateSchoolAdmin(): bool
     {
         return $this->isSuperAdmin() || $this->isSectorAdmin();
-    }
-
-    /**
-     * Check if user has a specific role.
-     *
-     * @param string $role
-     * @return bool
-     */
-    public function hasRole($role)
-    {
-        // Convert role name to slug format if needed
-        $roleSlug = str_replace('_', '-', $role);
-        
-        return $this->roles()->where('slug', $roleSlug)->exists();
-    }
-
-    /**
-     * Check if user has a specific permission.
-     *
-     * @param string $permission
-     * @return bool
-     */
-    public function hasPermission(string $permission): bool
-    {
-        return $this->roles()
-            ->whereHas('permissions', function ($query) use ($permission) {
-                $query->where('slug', $permission);
-            })->exists();
     }
 
     /**
@@ -284,5 +308,4 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $this->update(['is_active' => false]);
     }
-    
 }

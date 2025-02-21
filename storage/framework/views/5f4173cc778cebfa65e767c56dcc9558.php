@@ -47,11 +47,7 @@
    <!-- App JS -->
    <script src="<?php echo e(asset('js/app.js')); ?>"></script>
    
-   <!-- Settings JS -->
-   <script src="<?php echo e(asset('js/settings/table.js')); ?>"></script>
-   <script src="<?php echo e(asset('js/settings/regions.js')); ?>"></script>
-   <script src="<?php echo e(asset('js/settings/sector.js')); ?>"></script>
-   
+   <!-- Page Specific Scripts -->
    <?php echo $__env->yieldPushContent('scripts'); ?>
 
    <!-- Flash Messages -->

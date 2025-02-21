@@ -2,199 +2,290 @@
 
 namespace App\Http\Controllers\Settings;
 
-
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\Settings\Personal\PersonalController;
-use App\Models\Category;
-use App\Models\Column;
+use App\Domain\Entities\{Category, Column};
+use App\Domain\Entities\{Region, Sector, School, User};
+use Spatie\Activitylog\Models\Activity;
 use Illuminate\Http\Request;
-use App\Domain\Entities\{School, User, Region, Sector};
+use Illuminate\Support\Facades\DB;
 
 class SettingsController extends Controller
 {
-    // Ana ayarlar səhifəsi
+    // ... existing code ...
+
+    /**
+     * System settings page
+     */
+    public function system()
+    {
+        return view('pages.settings.system.index', [
+            'notifications' => $this->getNotificationSettings(),
+            'backups' => $this->getBackups(),
+            'logs' => $this->getLogs()
+        ]);
+    }
+
+    /**
+     * Notification settings page
+     */
+    public function notifications()
+    {
+        return view('pages.settings.system.notifications', [
+            'settings' => $this->getNotificationSettings()
+        ]);
+    }
+
+    /**
+     * Update notification settings
+     */
+    public function updateNotifications(Request $request)
+    {
+        $validated = $request->validate([
+            'email_notifications' => 'boolean',
+            'deadline_reminders' => 'boolean',
+            'system_alerts' => 'boolean',
+            'reminder_days' => 'required|integer|min:1|max:30'
+        ]);
+
+        // Update settings in database or config
+        setting()->set($validated);
+        setting()->save();
+
+        return response()->json([
+            'message' => 'Bildiriş tənzimləmələri uğurla yeniləndi'
+        ]);
+    }
+
+    /**
+     * Backup management page
+     */
+    public function backups()
+    {
+        return view('pages.settings.system.backups', [
+            'backups' => $this->getBackups()
+        ]);
+    }
+
+    /**
+     * Create new backup
+     */
+    public function createBackup(Request $request)
+    {
+        try {
+            // Create backup using Laravel Backup package
+            \Artisan::call('backup:run');
+
+            return response()->json([
+                'message' => 'Yeni backup uğurla yaradıldı'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Backup yaradılarkən xəta baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Download backup file
+     */
+    public function downloadBackup($filename)
+    {
+        $path = storage_path("app/backups/{$filename}");
+
+        if (!file_exists($path)) {
+            abort(404, 'Backup faylı tapılmadı');
+        }
+
+        return response()->download($path);
+    }
+
+    /**
+     * Delete backup file
+     */
+    public function deleteBackup($filename)
+    {
+        $path = storage_path("app/backups/{$filename}");
+
+        if (!file_exists($path)) {
+            return response()->json([
+                'message' => 'Backup faylı tapılmadı'
+            ], 404);
+        }
+
+        unlink($path);
+
+        return response()->json([
+            'message' => 'Backup faylı uğurla silindi'
+        ]);
+    }
+
+    /**
+     * Log management page
+     */
+    public function logs()
+    {
+        return view('pages.settings.system.logs', [
+            'logs' => $this->getLogs()
+        ]);
+    }
+
+    /**
+     * View specific log file
+     */
+    public function viewLog($filename)
+    {
+        $path = storage_path("logs/{$filename}");
+
+        if (!file_exists($path)) {
+            abort(404, 'Log faylı tapılmadı');
+        }
+
+        $content = file_get_contents($path);
+
+        return view('pages.settings.system.log-viewer', [
+            'filename' => $filename,
+            'content' => $content
+        ]);
+    }
+
+    /**
+     * Delete log file
+     */
+    public function deleteLog($filename)
+    {
+        $path = storage_path("logs/{$filename}");
+
+        if (!file_exists($path)) {
+            return response()->json([
+                'message' => 'Log faylı tapılmadı'
+            ], 404);
+        }
+
+        unlink($path);
+
+        return response()->json([
+            'message' => 'Log faylı uğurla silindi'
+        ]);
+    }
+
+    /**
+     * Table settings page
+     */
+    public function table(Request $request)
+    {
+        $categories = Category::orderBy('name')->get();
+        $selectedCategory = null;
+        $columns = collect();
+
+        if ($categoryId = $request->query('category')) {
+            $selectedCategory = Category::find($categoryId);
+            if ($selectedCategory) {
+                $columns = Column::where('category_id', $categoryId)
+                    ->orderBy('order')
+                    ->get();
+            }
+        }
+
+        return view('pages.settings.table.index', [
+            'categories' => $categories,
+            'selectedCategory' => $selectedCategory,
+            'columns' => $columns
+        ]);
+    }
+
+    /**
+     * Settings index page
+     */
     public function index()
     {
-        // Əsas ayarlar dashboard-u
         return view('pages.settings.index');
     }
 
-    // Kateqoriyalar üçün metodlar
-    public function categories()
-    {
-        // Bütün kateqoriyaları gətir
-        $categories = Category::all();
-        return view('pages.settings.categories.index', compact('categories'));
-    }
-
-    public function createCategory()
-    {
-        // Kateqoriya yaratma forması
-        return view('pages.settings.categories.create');
-    }
-
-    public function storeCategory(Request $request)
-    {
-        // Kateqoriya saxlama validasiyası
-        $validated = $request->validate([
-            'name' => 'required|unique:categories|max:255',
-            'description' => 'nullable|max:500'
-        ]);
-
-        // Yeni kateqoriya yaradılması
-        $category = Category::create($validated);
-
-        return redirect()
-            ->route('settings.categories')
-            ->with('success', 'Kateqoriya uğurla əlavə edildi');
-    }
-
-    // Cədvəl ayarları üçün metodlar
-    public function table(Request $request)
-    {
-        // Kateqoriyaları gətir
-        $categories = Category::all();
-        
-        // Seçilmiş kateqoriya (əgər varsa)
-        $selectedCategory = $request->has('category') 
-            ? Category::findOrFail($request->category) 
-            : null;
-
-        return view('settings.table', [
-            'categories' => $categories,
-            'selectedCategory' => $selectedCategory
-        ]);
-    }
-
-    public function columns()
-    {
-        // Bütün sütunları gətir
-        $columns = Column::with('category')->get();
-        return view('settings.columns.index', compact('columns'));
-    }
-
-    public function createColumn()
-    {
-        // Sütun yaratma forması üçün kateqoriyaları gətir
-        $categories = Category::all();
-        return view('settings.columns.create', compact('categories'));
-    }
-
-    public function storeColumn(Request $request)
-    {
-        // Sütun saxlama validasiyası
-        $validated = $request->validate([
-            'category_id' => 'required|exists:categories,id',
-            'name' => 'required|max:255',
-            'data_type' => 'required|in:text,number,date,select'
-        ]);
-
-        // Yeni sütun yaradılması
-        $column = Column::create($validated);
-
-        return redirect()
-            ->route('settings.columns')
-            ->with('success', 'Sütun uğurla əlavə edildi');
-    }
-
-    // Personal ayarları
+    /**
+     * Personal settings page
+     */
     public function personal()
     {
-        $data = [
-            'schools' => School::with(['sector.region'])->get(),
-            'schoolAdmins' => User::where('user_type', 'schooladmin')->with('school')->get(),
-            'regions' => Region::withCount('sectors')->get(),
-            'sectors' => Sector::withCount('schools')->get()
+        // Statistika məlumatlarını əldə edirik
+        $regions_count = Region::count();
+        $sectors_count = Sector::count();
+        $schools_count = School::count();
+        $users_count = User::count();
+
+        // Son fəaliyyətləri əldə edirik
+        $activities = Activity::with('causer')
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            ->get();
+
+        return view('pages.settings.personal.index', compact(
+            'regions_count',
+            'sectors_count',
+            'schools_count',
+            'users_count',
+            'activities'
+        ));
+    }
+
+    /**
+     * Get notification settings
+     */
+    private function getNotificationSettings()
+    {
+        return [
+            'email_notifications' => setting('email_notifications', true),
+            'deadline_reminders' => setting('deadline_reminders', true),
+            'system_alerts' => setting('system_alerts', true),
+            'reminder_days' => setting('reminder_days', 7)
         ];
-        // Personal ayarları səhifəsi
-        return view('pages.settings.personal.index', $data);
     }
 
-    // Məktəblər üçün metodlar
-    public function schools()
+    /**
+     * Get list of backup files
+     */
+    private function getBackups()
     {
-        // Bütün məktəbləri gətir
-        $schools = School::all();
-        return view('settings.schools.index', compact('schools'));
+        $path = storage_path('app/backups');
+        
+        if (!file_exists($path)) {
+            return [];
+        }
+
+        $files = array_diff(scandir($path), ['.', '..']);
+        $backups = [];
+
+        foreach ($files as $file) {
+            $backups[] = [
+                'name' => $file,
+                'size' => filesize("{$path}/{$file}"),
+                'created_at' => date('Y-m-d H:i:s', filemtime("{$path}/{$file}"))
+            ];
+        }
+
+        return collect($backups)->sortByDesc('created_at')->values()->all();
     }
 
-    public function createSchool()
+    /**
+     * Get list of log files
+     */
+    private function getLogs()
     {
-        // Məktəb yaratma forması
-        $sectors = Sector::all();
-        return view('settings.schools.create', compact('sectors'));
+        $path = storage_path('logs');
+        $files = array_diff(scandir($path), ['.', '..']);
+        $logs = [];
+
+        foreach ($files as $file) {
+            if (pathinfo($file, PATHINFO_EXTENSION) === 'log') {
+                $logs[] = [
+                    'name' => $file,
+                    'size' => filesize("{$path}/{$file}"),
+                    'updated_at' => date('Y-m-d H:i:s', filemtime("{$path}/{$file}"))
+                ];
+            }
+        }
+
+        return collect($logs)->sortByDesc('updated_at')->values()->all();
     }
 
-    public function storeSchool(Request $request)
-    {
-        // Məktəb saxlama validasiyası
-        $validated = $request->validate([
-            'name' => 'required|unique:schools|max:255',
-            'sector_id' => 'required|exists:sectors,id',
-            'utis_code' => 'required|unique:schools',
-            'phone' => 'nullable|string',
-            'email' => 'nullable|email|unique:schools'
-        ]);
-
-        // Yeni məktəb yaradılması
-        $school = School::create($validated);
-
-        return redirect()
-            ->route('settings.schools')
-            ->with('success', 'Məktəb uğurla əlavə edildi');
-    }
-
-    // Sektorlar üçün metodlar
-    public function sectors()
-    {
-        // Bütün sektorları gətir
-        $sectors = Sector::with('region')->get();
-        return view('settings.sectors.index', compact('sectors'));
-    }
-
-    public function createSector()
-    {
-        // Sektor yaratma forması
-        $regions = Region::all();
-        return view('settings.sectors.create', compact('regions'));
-    }
-
-    public function storeSector(Request $request)
-    {
-        // Sektor saxlama validasiyası
-        $validated = $request->validate([
-            'name' => 'required|unique:sectors|max:255',
-            'region_id' => 'required|exists:regions,id',
-            'phone' => 'nullable|string'
-        ]);
-
-        // Yeni sektor yaradılması
-        $sector = Sector::create($validated);
-
-        return redirect()
-            ->route('settings.sectors')
-            ->with('success', 'Sektor uğurla əlavə edildi');
-    }
-
-    // İmport/Export üçün metodlar
-    public function import()
-    {
-        return view('settings.import');
-    }
-
-    public function export()
-    {
-        return view('settings.export');
-    }
-
-    public function templates()
-    {
-        return view('settings.templates');
-    }
-
-    public function downloadTemplate()
-    {
-        $templatePath = public_path('templates/school_template.xlsx');
-        return response()->download($templatePath);
-    }
+    // ... existing code ...
 }

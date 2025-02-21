@@ -7,6 +7,10 @@ use App\Domain\Enums\UserType;
 use App\Domain\Entities\User;
 use App\Events\Auth\LoginEvent;
 use App\Events\Auth\LogoutEvent;
+use App\Events\Auth\FailedLoginAttemptEvent;
+use App\Events\Auth\PasswordResetEvent;
+use App\Http\Requests\Auth\PasswordResetRequest;
+use App\Http\Requests\Auth\PasswordUpdateRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -18,225 +22,142 @@ use Illuminate\Validation\ValidationException;
 class WebAuthController extends Controller
 {
     /**
-     * Show login form.
-     *
-     * @return \Illuminate\View\View|\Illuminate\Http\RedirectResponse
+     * Login formasını göstərir
      */
     public function showLoginForm()
     {
         if (Auth::check()) {
-            return redirect()->intended('/dashboard');
+            return $this->redirectBasedOnRole(Auth::user());
         }
         return view('auth.login');
     }
 
     /**
-     * Handle user login.
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\RedirectResponse
+     * İstifadəçi girişini həyata keçirir
      */
     public function login(Request $request)
     {
         try {
             $credentials = $request->validate([
-                'email' => 'required|email',
-                'password' => 'required'
+                'email' => ['required', 'email'],
+                'password' => ['required']
             ]);
 
-            // Attempt login with remember me functionality
-            if ($this->attemptLogin($request)) {
+            // Remember me checkbox-dan gələn dəyəri boolean-a çeviririk
+            $remember = $request->has('remember');
+
+            // Debug məlumatları
+            Log::info('Login attempt', [
+                'email' => $credentials['email'],
+                'remember' => $remember
+            ]);
+
+            if ($this->hasTooManyLoginAttempts($request)) {
+                event(new FailedLoginAttemptEvent(
+                    $request->email,
+                    $request->ip(),
+                    $this->getLoginAttempts($request)
+                ));
+                
+                return $this->sendLockoutResponse($request);
+            }
+
+            // Əvvəlcə istifadəçini tapaq
+            $user = User::where('email', $credentials['email'])->first();
+            
+            // Debug məlumatları
+            if ($user) {
+                Log::info('User found:', [
+                    'id' => $user->id,
+                    'user_type' => $user->user_type,
+                    'is_active' => $user->is_active
+                ]);
+            }
+
+            if (Auth::attempt($credentials, $remember)) {
+                $request->session()->regenerate();
+                
                 $user = Auth::user();
-
-                \Log::info('User logged in', [
-                    'user_id' => $user->id,
-                    'roles' => $user->roles->pluck('slug')->toArray(),
-                    'has_super_admin' => $user->hasRole('super-admin'),
-                    'user_type' => $user->user_type
-                ]);
-        
-
-                // Check if user is active
-                if (!$user->is_active) {
-                    Auth::logout();
-                    return back()->withErrors(['email' => 'Hesabınız bloklanmışdır']);
-                }
-
-                // Trigger Login Event for Web
-                event(new LoginEvent($user, true));
-
-                Log::info('Web login successful', [
-                    'user_id' => $user->id,
-                    'ip' => $request->ip()
-                ]);
-
-                // Redirect based on user type
-                return $this->redirectBasedOnUserType($user);
+                
+                // Login məlumatlarını yeniləyirik
+                $user->last_login_at = now();
+                $user->last_login_ip = $request->ip();
+                $user->save();
+                
+                event(new LoginEvent($user));
+                
+                return $this->redirectBasedOnRole($user);
             }
 
-            Log::warning('Web login failed', [
-                'email' => $request->email,
-                'ip' => $request->ip()
+            // Debug məlumatları
+            Log::error('Authentication failed:', [
+                'email' => $credentials['email']
             ]);
 
-            return back()->withErrors(['email' => 'Email və ya şifrə yanlışdır'])
-                         ->withInput($request->only('email'));
-
-        } catch (ValidationException $e) {
-            Log::warning('Login validation failed', [
-                'errors' => $e->errors(),
-                'email' => $request->email
+            $this->incrementLoginAttempts($request);
+            
+            throw ValidationException::withMessages([
+                'email' => ['Daxil etdiyiniz məlumatlar yanlışdır.'],
             ]);
-
-            return back()->withErrors($e->errors())
-                         ->withInput($request->only('email'));
-        }
-    }
-
-    /**
-     * Attempt to log in the user.
-     *
-     * @param Request $request
-     * @return bool
-     */
-    protected function attemptLogin(Request $request)
-    {
-        return Auth::attempt(
-            $request->only('email', 'password'),
-            $request->boolean('remember')
-        );
-    }
-
-    /**
-     * Redirect user based on their type.
-     *
-     * @param \App\Domain\Entities\User $user
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    // WebAuthController.php - yenilənməli
-    protected function redirectBasedOnUserType($user)
-    {
-        // Log əlavə edək
-        \Log::info('Redirecting user', [
-            'user_id' => $user->id,
-            'user_type' => $user->user_type
-        ]);
-
-        try {
-            switch ($user->user_type) {
-                case UserType::SUPER_ADMIN:
-                    return redirect()->route('dashboard.super-admin');
-                case UserType::SECTOR_ADMIN:
-                    if (!$user->sector_id) {
-                        throw new \Exception('Sector not assigned');
-                    }
-                    return redirect()->route('dashboard.sector-admin');
-                case UserType::SCHOOL_ADMIN:
-                    if (!$user->school_id) {
-                        throw new \Exception('School not assigned');
-                    }
-                    return redirect()->route('dashboard.school-admin');
-                default:
-                    throw new \Exception('Invalid user type');
-            }
         } catch (\Exception $e) {
-            \Log::error('Redirect error', [
-                'user_id' => $user->id,
-                'error' => $e->getMessage()
+            Log::error('Login error: ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
             ]);
-
-            auth()->logout();
-            return redirect()->route('login')
-                ->withErrors(['email' => 'Hesab konfiqurasiyasında xəta var']);
+            return back()->withErrors(['email' => 'Sistemə giriş zamanı xəta baş verdi.']);
         }
     }
 
     /**
-     * Log the user out.
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\RedirectResponse
+     * İstifadəçi çıxışını həyata keçirir
      */
     public function logout(Request $request)
     {
-        $user = Auth::user();
-
-        // Trigger Logout Event for Web
-        event(new LogoutEvent($user, true));
-
-        // Log the logout event
-        Log::info('Web logout', [
-            'user_id' => $user->id,
-            'ip' => $request->ip()
-        ]);
-
-        // Logout the user
+        event(new LogoutEvent(Auth::user()));
+        
         Auth::logout();
-
-        // Invalidate the session
         $request->session()->invalidate();
-
-        // Regenerate CSRF token
         $request->session()->regenerateToken();
         
-        // Redirect to login page
         return redirect()->route('login');
     }
 
     /**
-     * Show forgot password form.
-     *
-     * @return \Illuminate\View\View
+     * Şifrə bərpası formasını göstərir
      */
     public function showForgotPasswordForm()
     {
-        return view('auth.passwords.email');
+        return view('auth.forgot-password');
     }
 
     /**
-     * Send password reset link.
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\RedirectResponse
+     * Şifrə bərpası linki göndərir
      */
-    public function sendPasswordResetLink(Request $request)
+    public function sendPasswordResetLink(PasswordResetRequest $request)
     {
-        $request->validate(['email' => 'required|email']);
-
         $status = Password::sendResetLink(
             $request->only('email')
         );
 
         return $status === Password::RESET_LINK_SENT
-            ? back()->with('status', __($status))
+            ? back()->with(['status' => __($status)])
             : back()->withErrors(['email' => __($status)]);
     }
 
     /**
-     * Show password reset form.
-     *
-     * @param string $token
-     * @return \Illuminate\View\View
+     * Şifrə yeniləmə formasını göstərir
      */
-    public function showResetPasswordForm($token)
+    public function showResetPasswordForm(Request $request)
     {
-        return view('auth.passwords.reset', ['token' => $token]);
+        return view('auth.reset-password', ['token' => $request->token]);
     }
 
     /**
-     * Handle password reset.
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\RedirectResponse
+     * Şifrəni yeniləyir
      */
-    public function resetPassword(Request $request)
+    public function resetPassword(PasswordUpdateRequest $request)
     {
-        $request->validate([
-            'token' => 'required',
-            'email' => 'required|email',
-            'password' => 'required|min:8|confirmed'
-        ]);
-
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user, $password) {
@@ -245,11 +166,73 @@ class WebAuthController extends Controller
                 ])->setRememberToken(Str::random(60));
 
                 $user->save();
+
+                event(new PasswordResetEvent($user));
             }
         );
 
         return $status === Password::PASSWORD_RESET
             ? redirect()->route('login')->with('status', __($status))
-            : back()->withErrors(['email' => __($status)]);
+            : back()->withErrors(['email' => [__($status)]]);
+    }
+
+    /**
+     * İstifadəçini roluna görə yönləndirir
+     */
+    protected function redirectBasedOnRole($user)
+    {
+        if ($user->isSuperAdmin()) {
+            return redirect()->route('dashboard.super-admin');
+        } elseif ($user->isSectorAdmin()) {
+            return redirect()->route('dashboard.sector-admin');
+        } elseif ($user->isSchoolAdmin()) {
+            return redirect()->route('dashboard.school-admin');
+        }
+        
+        return redirect()->route('dashboard');
+    }
+
+    /**
+     * Login cəhdlərinin sayını artırır
+     */
+    protected function incrementLoginAttempts(Request $request)
+    {
+        $key = $this->throttleKey($request);
+        $attempts = cache()->get($key, 0) + 1;
+        cache()->put($key, $attempts, now()->addMinutes(60));
+    }
+
+    /**
+     * Login cəhdlərinin sayını yoxlayır
+     */
+    protected function hasTooManyLoginAttempts(Request $request)
+    {
+        return cache()->get($this->throttleKey($request), 0) >= 5;
+    }
+
+    /**
+     * Login cəhdlərinin sayını qaytarır
+     */
+    protected function getLoginAttempts(Request $request)
+    {
+        return cache()->get($this->throttleKey($request), 0);
+    }
+
+    /**
+     * Cache key-ni generasiya edir
+     */
+    protected function throttleKey(Request $request)
+    {
+        return 'login_attempts_' . $request->ip();
+    }
+
+    /**
+     * Bloklanma cavabını qaytarır
+     */
+    protected function sendLockoutResponse(Request $request)
+    {
+        return back()->withErrors([
+            'email' => ['Həddindən artıq cəhd. Zəhmət olmasa bir neçə dəqiqə gözləyin.'],
+        ]);
     }
 }

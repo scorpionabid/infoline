@@ -80,28 +80,89 @@
         </div>
     </div>
 
-    <!-- Quick Actions -->
+    <!-- Recent Activities -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card shadow">
                 <div class="card-header">
-                    <h6 class="m-0 font-weight-bold text-primary">Sürətli Əməliyyatlar</h6>
+                    <h6 class="m-0 font-weight-bold text-primary">Son Fəaliyyətlər</h6>
                 </div>
                 <div class="card-body">
-                    <button class="btn btn-primary m-1">
-                    <i class="fas fa-plus"></i> Region Əlavə Et
-                </button>
-                <button class="btn btn-success m-1">
-                    <i class="fas fa-plus"></i> Sektor Əlavə Et
-                </button>
-                <button class="btn btn-info m-1">
-                    <i class="fas fa-plus"></i> Məktəb Əlavə Et
-                </button>
-                <button class="btn btn-warning m-1">
-                    <i class="fas fa-plus"></i> İstifadəçi Əlavə Et
-                </button>
+                    <div class="activity-timeline">
+                        @forelse($recentActivities ?? [] as $activity)
+                        <div class="activity-item">
+                            <div class="activity-content">
+                                <div class="activity-header">
+                                    <i class="fas {{ $activity->icon ?? 'fa-circle' }} text-{{ $activity->type ?? 'primary' }}"></i>
+                                    <span class="activity-time">{{ $activity->created_at->diffForHumans() }}</span>
+                                </div>
+                                <div class="activity-description">
+                                    {{ $activity->description }}
+                                </div>
+                            </div>
+                        </div>
+                        @empty
+                        <p class="text-muted">Heç bir fəaliyyət tapılmadı.</p>
+                        @endforelse
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+
+    <!-- Quick Links -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="m-0 font-weight-bold text-primary">Sürətli Keçidlər</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <a href="{{ route('settings.personal.regions.index') }}" class="card h-100 border-left-primary">
+                                <div class="card-body">
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                        Region İdarəetməsi
+                                    </div>
+                                    <div class="small">Regionları və sektor adminlərini idarə edin</div>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{{ route('settings.personal.sectors.index') }}" class="card h-100 border-left-success">
+                                <div class="card-body">
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                        Sektor İdarəetməsi
+                                    </div>
+                                    <div class="small">Sektorları və məktəb adminlərini idarə edin</div>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{{ route('settings.table.category.index') }}" class="card h-100 border-left-info">
+                                <div class="card-body">
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                        Cədvəl Ayarları
+                                    </div>
+                                    <div class="small">Kateqoriya və sütunları idarə edin</div>
+                                </div>
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{{ route('settings.system.index') }}" class="card h-100 border-left-warning">
+                                <div class="card-body">
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                        Sistem Ayarları
+                                    </div>
+                                    <div class="small">Sistem parametrlərini tənzimləyin</div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+</div>
 @endsection

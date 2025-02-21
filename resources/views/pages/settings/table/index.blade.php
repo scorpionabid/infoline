@@ -36,12 +36,30 @@
                 </div>
                 <div class="list-group list-group-flush">
                     @forelse($categories as $category)
-                        <a href="{{ route('settings.table.index', ['category' => $category->id]) }}" 
-                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center
-                                  {{ $selectedCategory && $selectedCategory->id === $category->id ? 'active' : '' }}">
-                            <span>{{ $category->name }}</span>
-                            <span class="badge bg-secondary rounded-pill">{{ $category->columns_count }}</span>
-                        </a>
+                        <div class="list-group-item d-flex justify-content-between align-items-center
+                              {{ $selectedCategory && $selectedCategory->id === $category->id ? 'active' : '' }}">
+                            <a href="{{ route('settings.table.index', ['category' => $category->id]) }}" 
+                               class="text-decoration-none {{ $selectedCategory && $selectedCategory->id === $category->id ? 'text-white' : 'text-dark' }}">
+                                {{ $category->name }}
+                                <span class="badge {{ $selectedCategory && $selectedCategory->id === $category->id ? 'bg-white text-primary' : 'bg-secondary' }} rounded-pill ms-2">
+                                    {{ $category->columns_count }}
+                                </span>
+                            </a>
+                            <div class="btn-group">
+                                <button type="button" 
+                                        class="btn btn-sm {{ $selectedCategory && $selectedCategory->id === $category->id ? 'btn-light' : 'btn-outline-primary' }}"
+                                        data-action="edit-category"
+                                        data-category-id="{{ $category->id }}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" 
+                                        class="btn btn-sm {{ $selectedCategory && $selectedCategory->id === $category->id ? 'btn-light' : 'btn-outline-danger' }}"
+                                        data-action="delete-category"
+                                        data-category-id="{{ $category->id }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
                     @empty
                         <div class="list-group-item text-muted text-center">
                             Kateqoriya tapılmadı
@@ -113,11 +131,13 @@
                                                 </td>
                                                 <td>
                                                     <button class="btn btn-sm btn-primary me-1" 
-                                                            onclick="editColumn({{ $column->id }})">
+                                                            data-action="edit-column"
+                                                            data-column-id="{{ $column->id }}">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
                                                     <button class="btn btn-sm btn-danger"
-                                                            onclick="deleteColumn({{ $column->id }})">
+                                                            data-action="delete-column"
+                                                            data-column-id="{{ $column->id }}">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
                                                 </td>
@@ -151,5 +171,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('js/views/settings/table.js') }}"></script>
+<script src="{{ asset('js/settings/table.js') }}"></script>
 @endpush

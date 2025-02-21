@@ -1,7 +1,7 @@
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
    <div class="container-fluid">
        <!-- Brand -->
-       <a class="navbar-brand" href="<?php echo e(route('dashboard')); ?>">
+       <a class="navbar-brand" href="<?php echo e(route('dashboard.index')); ?>">
            <?php echo e(config('app.name')); ?>
 
        </a>
@@ -10,7 +10,7 @@
        <div class="navbar-nav me-auto">
            <!-- Dashboard -->
            <a class="nav-link <?php echo e(request()->routeIs('dashboard.*') ? 'active' : ''); ?>" 
-              href="<?php echo e(route('dashboard')); ?>">
+              href="<?php echo e(route('dashboard.index')); ?>">
                <i class="fas fa-home"></i> Dashboard
            </a>
            
@@ -71,8 +71,8 @@
                <ul class="dropdown-menu dropdown-menu-end">
                    <li>
                        <a class="dropdown-item <?php echo e(request()->routeIs('profile.*') ? 'active' : ''); ?>"
-                          href="<?php echo e(route('profile')); ?>">
-                           <i class="fas fa-id-card"></i> Profil
+                          href="<?php echo e(route('profile.index')); ?>">
+                           <i class="fas fa-user"></i> Profil
                        </a>
                    </li>
                    <li><hr class="dropdown-divider"></li>

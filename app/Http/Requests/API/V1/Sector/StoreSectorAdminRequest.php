@@ -20,7 +20,8 @@ class StoreSectorAdminRequest extends FormRequest
             'username' => 'required|unique:users,username|alpha_dash|max:50',
             'password' => 'required|min:8',
             'utis_code' => 'required|string|size:7|unique:users',
-            'sector_id' => 'required|exists:sectors,id'
+            'sector_id' => 'required|exists:sectors,id',
+            'user_type' => 'required|in:sectoradmin'
         ];
     }
 
@@ -40,7 +41,9 @@ class StoreSectorAdminRequest extends FormRequest
             'utis_code.size' => 'UTİS kodu 7 rəqəmdən ibarət olmalıdır',
             'utis_code.unique' => 'Bu UTİS kodu artıq istifadə olunub',
             'sector_id.required' => 'Sektor seçilməlidir',
-            'sector_id.exists' => 'Seçilmiş sektor mövcud deyil'
+            'sector_id.exists' => 'Seçilmiş sektor mövcud deyil',
+            'user_type.required' => 'İstifadəçi tipi təyin edilməlidir',
+            'user_type.in' => 'İstifadəçi tipi düzgün deyil'
         ];
     }
 }

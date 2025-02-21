@@ -2,18 +2,17 @@
 
 namespace App\Http\Controllers\Settings\Personal;
 
-use App\Http\Controllers\Controller;
 use App\Domain\Entities\User;
 use App\Domain\Entities\Role;
 use App\Domain\Entities\Region;
 use App\Domain\Entities\Sector;
 use App\Domain\Entities\School;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\User\StoreUserRequest;
 use App\Http\Requests\Settings\User\UpdateUserRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
-
 
 class UserManagementController extends Controller
 {
@@ -22,11 +21,27 @@ class UserManagementController extends Controller
      */
     public function index()
     {
-        $users = User::with(['roles', 'region', 'sector', 'school'])
+        // Superadmin yalnız sektor və məktəb adminləri yarada bilər
+        $user_types = [
+            'sectoradmin' => 'Sektor Admin',
+            'schooladmin' => 'Məktəb Admin'
+        ];
+
+        $users = User::with(['region', 'sector', 'school'])
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        return view('pages.settings.personal.users.index', compact('schools', 'schoolAdmins', 'users'));
+        $regions = Region::orderBy('name')->get();
+        $sectors = Sector::orderBy('name')->get();
+        $schools = School::orderBy('name')->get();
+
+        return view('pages.settings.personal.users.index', compact(
+            'users',
+            'user_types',
+            'regions',
+            'sectors',
+            'schools'
+        ));
     }
 
     /**
@@ -34,13 +49,21 @@ class UserManagementController extends Controller
      */
     public function create()
     {
-        $roles = Role::all();
-        $regions = Region::all();
-        $sectors = Sector::all();
-        $schools = School::all();
+        // Superadmin yalnız sektor və məktəb adminləri yarada bilər
+        $user_types = [
+            'sectoradmin' => 'Sektor Admin',
+            'schooladmin' => 'Məktəb Admin'
+        ];
 
-        return view('settings.users.create', compact(
-            'roles', 'regions', 'sectors', 'schools'
+        $regions = Region::orderBy('name')->get();
+        $sectors = Sector::orderBy('name')->get();
+        $schools = School::orderBy('name')->get();
+
+        return view('pages.settings.personal.users.create', compact(
+            'user_types',
+            'regions',
+            'sectors',
+            'schools'
         ));
     }
 
@@ -93,7 +116,7 @@ class UserManagementController extends Controller
         $sectors = Sector::all();
         $schools = School::all();
 
-        return view('settings.users.edit', compact(
+        return view('pages.settings.personal.users.edit', compact(
             'user', 'roles', 'regions', 'sectors', 'schools'
         ));
     }

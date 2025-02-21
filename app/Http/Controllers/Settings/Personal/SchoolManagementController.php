@@ -3,96 +3,332 @@
 namespace App\Http\Controllers\Settings\Personal;
 
 use App\Http\Controllers\Controller;
-
 use Illuminate\Http\Request;
 use App\Domain\Entities\School;
 use App\Domain\Entities\Sector;
+use App\Domain\Entities\Region;
 use App\Domain\Entities\User;
+use App\Domain\Entities\Category;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use App\Http\Requests\Settings\School\StoreSchoolRequest;
+use App\Http\Requests\Settings\School\UpdateSchoolRequest;
+use App\Http\Requests\Settings\School\AssignAdminRequest;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Validation\ValidationException;
 
 class SchoolManagementController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $schools = School::with('sector')->paginate(20);
-        $schoolAdmins = User::where('user_type', 'schooladmin')
-            ->with('school')
-            ->paginate(20);
-        return view('pages.settings.personal.schools.index', compact('schools', 'schoolAdmins'));
+        $query = School::with(['sector.region', 'admin'])
+            ->withCount(['data', 'admins']);
+
+        // Filtirləmə
+        if ($request->filled('region')) {
+            $query->inRegion($request->region);
+        }
+
+        if ($request->filled('sector')) {
+            $query->where('sector_id', $request->sector);
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status === 'active');
+        }
+
+        if ($request->filled('type')) {
+            $query->ofType($request->type);
+        }
+
+        if ($request->filled('search')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('name', 'like', "%{$request->search}%")
+                  ->orWhere('utis_code', 'like', "%{$request->search}%")
+                  ->orWhere('email', 'like', "%{$request->search}%");
+            });
+        }
+
+        $schools = $query->latest()->paginate(20);
+        $regions = Region::all();
+        $sectors = Sector::all();
+        $schoolTypes = config('enums.school_types');
+
+        return view('pages.settings.personal.schools.index', compact(
+            'schools', 
+            'regions', 
+            'sectors',
+            'schoolTypes'
+        ));
     }
 
     public function create()
     {
-        $sectors = Sector::all();
-        return view('pages.settings.personal.schools.create', compact('sectors'));
+        $sectors = Sector::with('region')->get();
+        $schoolTypes = config('enums.school_types');
+        
+        return view('pages.settings.personal.schools.create', compact('sectors', 'schoolTypes'));
     }
 
-    public function store(Request $request)
+    public function store(StoreSchoolRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|unique:schools|max:255',
-            'sector_id' => 'required|exists:sectors,id',
-            'utis_code' => 'required|unique:schools',
-            'phone' => 'nullable|string',
-            'email' => 'nullable|email|unique:schools'
-        ]);
+        try {
+            DB::beginTransaction();
 
-        $school = School::create($validated);
+            $school = School::create($request->validated());
 
-        return redirect()
-            ->route('settings.schools.index')
-            ->with('success', 'Məktəb uğurla yaradıldı');
+            // Əgər admin təyin edilibsə
+            if ($request->filled('admin_id')) {
+                $school->assignAdmin(User::findOrFail($request->admin_id));
+            }
+
+            DB::commit();
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Məktəb uğurla yaradıldı',
+                    'school' => $school->load('sector.region', 'admin')
+                ]);
+            }
+
+            return redirect()
+                ->route('settings.personal.schools.index')
+                ->with('success', 'Məktəb uğurla yaradıldı');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Məktəb yaradılarkən xəta: ' . $e->getMessage());
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Xəta baş verdi: ' . $e->getMessage()
+                ], 500);
+            }
+
+            return back()
+                ->withInput()
+                ->with('error', 'Xəta baş verdi: ' . $e->getMessage());
+        }
     }
 
     public function edit(School $school)
     {
-        $sectors = Sector::all();
-        return view('settings.schools.edit', compact('school', 'sectors'));
+        $sectors = Sector::with('region')->get();
+        $schoolTypes = config('enums.school_types');
+        $categories = Category::all();
+        $dataCompletion = $school->data_completion_percentage;
+
+        return view('pages.settings.personal.schools.edit', compact(
+            'school',
+            'sectors',
+            'schoolTypes',
+            'categories',
+            'dataCompletion'
+        ));
     }
 
-    public function update(Request $request, School $school)
+    public function update(UpdateSchoolRequest $request, School $school)
     {
-        $validated = $request->validate([
-            'name' => 'required|max:255|unique:schools,name,' . $school->id,
-            'sector_id' => 'required|exists:sectors,id',
-            'utis_code' => 'required|unique:schools,utis_code,' . $school->id,
-            'phone' => 'nullable|string',
-            'email' => 'nullable|email|unique:schools,email,' . $school->id
-        ]);
+        try {
+            DB::beginTransaction();
 
-        $school->update($validated);
+            $school->update($request->validated());
 
-        return redirect()
-            ->route('settings.schools.index')
-            ->with('success', 'Məktəb məlumatları yeniləndi');
+            // Əgər admin dəyişdirilibsə
+            if ($request->filled('admin_id') && $request->admin_id !== $school->admin_id) {
+                $school->assignAdmin(User::findOrFail($request->admin_id));
+            }
+
+            DB::commit();
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Məktəb məlumatları yeniləndi',
+                    'school' => $school->fresh(['sector.region', 'admin'])
+                ]);
+            }
+
+            return redirect()
+                ->route('settings.personal.schools.index')
+                ->with('success', 'Məktəb məlumatları yeniləndi');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Məktəb yenilənərkən xəta: ' . $e->getMessage());
+
+            if ($request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Xəta baş verdi: ' . $e->getMessage()
+                ], 500);
+            }
+
+            return back()
+                ->withInput()
+                ->with('error', 'Xəta baş verdi: ' . $e->getMessage());
+        }
     }
 
     public function destroy(School $school)
     {
-        $school->delete();
+        try {
+            if ($school->data()->exists()) {
+                throw new \Exception('Bu məktəbə aid məlumatlar var. Əvvəlcə məlumatları silin.');
+            }
 
-        return back()->with('success', 'Məktəb silindi');
+            $school->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Məktəb silindi'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Məktəb silinərkən xəta: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
+        }
     }
 
     public function updateStatus(Request $request, School $school)
     {
-        $school->update([
-            'is_active' => $request->status
-        ]);
+        try {
+            $school->update(['status' => $request->status]);
 
-        return back()->with('success', 'Məktəbin statusu yeniləndi');
+            return response()->json([
+                'success' => true,
+                'message' => 'Məktəbin statusu yeniləndi'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Məktəb statusu yenilənərkən xəta: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Xəta baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
-    public function assignAdmin(Request $request, School $school)
+    public function assignAdmin(AssignAdminRequest $request, School $school)
     {
-        // Admin təyinatı üçün məntiq
+        try {
+            DB::beginTransaction();
+
+            $user = User::findOrFail($request->admin_id);
+            $school->assignAdmin($user);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Məktəbə admin təyin edildi',
+                'admin' => $user
+            ]);
+
+        } catch (ModelNotFoundException $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'İstifadəçi tapılmadı'
+            ], 404);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Admin təyin edilərkən xəta: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Xəta baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function getSchoolData(School $school)
+    {
+        $data = $school->data()
+            ->with('category')
+            ->latest()
+            ->paginate(20);
+
+        return view('pages.settings.personal.schools.data', compact('school', 'data'));
+    }
+
+    /**
+     * Məktəb məlumatları səhifəsini göstərir
+     */
+    public function data(School $school)
+    {
+        $categories = Category::all();
+        $data = $school->data()->with('category')->latest()->paginate(10);
+        $dataCompletion = $this->calculateDataCompletion($school);
+
+        return view('pages.settings.personal.schools.data', compact('school', 'categories', 'data', 'dataCompletion'));
+    }
+
+    /**
+     * Yeni məktəb məlumatı əlavə edir
+     */
+    public function storeData(Request $request, School $school)
+    {
         $validated = $request->validate([
-            'admin_id' => 'required|exists:users,id'
+            'category_id' => 'required|exists:categories,id',
+            'content' => 'required|string|max:1000',
         ]);
 
-        $school->update([
-            'admin_id' => $validated['admin_id']
+        $school->data()->create($validated);
+
+        return response()->json([
+            'message' => 'Məlumat uğurla əlavə edildi'
+        ]);
+    }
+
+    /**
+     * Məktəb məlumatını yeniləyir
+     */
+    public function updateData(Request $request, $id)
+    {
+        $data = SchoolData::findOrFail($id);
+        
+        $validated = $request->validate([
+            'category_id' => 'required|exists:categories,id',
+            'content' => 'required|string|max:1000',
         ]);
 
-        return back()->with('success', 'Məktəbə admin təyin edildi');
+        $data->update($validated);
+
+        return response()->json([
+            'message' => 'Məlumat uğurla yeniləndi'
+        ]);
+    }
+
+    /**
+     * Məktəb məlumatını silir
+     */
+    public function destroyData($id)
+    {
+        $data = SchoolData::findOrFail($id);
+        $data->delete();
+
+        return response()->json([
+            'message' => 'Məlumat uğurla silindi'
+        ]);
+    }
+
+    /**
+     * Məktəb məlumatlarının tamamlanma faizini hesablayır
+     */
+    private function calculateDataCompletion(School $school)
+    {
+        $totalCategories = Category::count();
+        $completedCategories = $school->data()->distinct('category_id')->count('category_id');
+
+        return round(($completedCategories / $totalCategories) * 100);
     }
 }
