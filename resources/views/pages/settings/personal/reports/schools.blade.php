@@ -168,7 +168,7 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <a href="{{ route('settings.personal.schools.data', $school) }}" 
+                                    <a href="{{ route('settings.personal.schools.show.data', $school) }}" 
                                        class="btn btn-sm btn-info">
                                         <i class="fas fa-eye"></i>
                                     </a>

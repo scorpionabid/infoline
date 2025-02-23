@@ -3,138 +3,156 @@
 namespace App\Http\Controllers\Settings\Personal;
 
 use App\Http\Controllers\Controller;
+use App\Domain\Entities\{Sector, Region};
+use App\Application\Services\SectorService;
+use App\Http\Requests\Settings\Sector\{StoreSectorRequest, UpdateSectorRequest};
+use App\Application\DTOs\SectorDTO;
+use Illuminate\Support\Facades\{DB, Log};
 use Illuminate\Http\Request;
-use App\Domain\Entities\{Sector, Region, School, User};
-use App\Application\Services\{SectorService, UserService};
-use App\Http\Requests\Settings\User\{StoreUserRequest, UpdateUserRequest};
-use App\Http\Requests\Settings\Personal\{StoreSectorRequest, UpdateSectorRequest, StoreSectorAdminRequest};
-use App\Application\DTOs\{UserDTO, SectorDTO};
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Validation\ValidationException;
-use InvalidArgumentException;
-use App\Exceptions\SectorAdminUpdateException;
-use Illuminate\Http\JsonResponse;
-use DataTables;
+use App\Domain\Entities\User;
 
 class SectorManagementController extends Controller
 {
     private SectorService $sectorService;
-    private UserService $userService;
 
-    public function __construct(
-        SectorService $sectorService,
-        UserService $userService
-    ) {
+    public function __construct(SectorService $sectorService)
+    {
         $this->sectorService = $sectorService;
-        $this->userService = $userService;
     }
 
     public function index()
     {
-        $data = [
-            'regions' => Region::all(),
-            'totalSectors' => Sector::count(),
-            'activeAdmins' => User::where('user_type', 'sectoradmin')->where('status', 'active')->count(),
-            'totalSchools' => School::count()
-        ];
+        $regions = Region::with(['sectors' => function($query) {
+            $query->withCount('schools')
+                  ->with('admin');
+        }])->orderBy('name')->get();
 
-        return view('pages.settings.personal.sectors.index', $data);
-    }
-
-    public function data(Request $request)
-    {
-        $query = Sector::with(['region', 'admin', 'schools'])
-            ->when($request->region, function($q) use ($request) {
-                return $q->where('region_id', $request->region);
-            })
-            ->when($request->admin_status, function($q) use ($request) {
-                if ($request->admin_status === 'with_admin') {
-                    return $q->whereNotNull('admin_id');
-                } elseif ($request->admin_status === 'without_admin') {
-                    return $q->whereNull('admin_id');
-                }
-            });
-
-        return DataTables::of($query)
-            ->addColumn('schools_count', function($sector) {
-                return $sector->schools->count();
-            })
-            ->addColumn('actions', function($sector) {
-                return view('pages.settings.personal.sectors.actions', compact('sector'));
-            })
-            ->rawColumns(['actions'])
-            ->make(true);
+        return view('pages.settings.personal.sectors.index', compact('regions'));
     }
 
     public function create()
     {
-        return view('pages.settings.personal.sectors.create', [
-            'regions' => Region::all()
-        ]);
+        $regions = Region::orderBy('name')->get();
+        return view('pages.settings.personal.sectors.create', compact('regions'));
     }
 
     public function store(StoreSectorRequest $request)
     {
         try {
-            $sector = $this->sectorService->create($request->validated());
+            DB::beginTransaction();
+            
+            $dto = new SectorDTO($request->validated());
+            $sector = $this->sectorService->create($dto);
+            
+            DB::commit();
+            
             return redirect()
                 ->route('settings.personal.sectors.index')
                 ->with('success', 'Sektor uğurla yaradıldı');
+            
         } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Sector creation error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return back()
                 ->withInput()
-                ->with('error', 'Sektor yaradılarkən xəta baş verdi: ' . $e->getMessage());
+                ->withErrors(['error' => 'Sektor yaradılarkən xəta baş verdi']);
         }
     }
 
     public function edit(Sector $sector)
     {
-        return view('pages.settings.personal.sectors.edit', [
-            'sector' => $sector,
-            'regions' => Region::all()
-        ]);
+        $regions = Region::orderBy('name')->get();
+        $users = User::orderBy('first_name')
+            ->orderBy('last_name')
+            ->get();
+        return view('pages.settings.personal.sectors.edit', compact('sector', 'regions', 'users'));
     }
 
     public function update(UpdateSectorRequest $request, Sector $sector)
     {
         try {
-            $this->sectorService->update($sector->id, $request->validated());
+            DB::beginTransaction();
+            
+            $dto = new SectorDTO($request->validated());
+            $sector = $this->sectorService->update($sector->id, $dto);
+            
+            DB::commit();
+            
             return redirect()
                 ->route('settings.personal.sectors.index')
                 ->with('success', 'Sektor uğurla yeniləndi');
+            
         } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Sector update error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return back()
                 ->withInput()
-                ->with('error', 'Sektor yenilənərkən xəta baş verdi: ' . $e->getMessage());
+                ->withErrors(['error' => 'Sektor yenilənərkən xəta baş verdi']);
         }
     }
 
     public function destroy(Sector $sector)
     {
         try {
-            $this->sectorService->delete($sector->id);
-            return response()->json(['message' => 'Sektor uğurla silindi']);
+            DB::beginTransaction();
+            
+            if ($sector->schools()->count() > 0) {
+                return back()->withErrors(['error' => 'Bu sektorun məktəbləri var. Əvvəlcə məktəbləri silin.']);
+            }
+            
+            $sector->forceDelete();
+            
+            DB::commit();
+            
+            return redirect()
+                ->route('settings.personal.sectors.index')
+                ->with('success', 'Sektor uğurla silindi');
+            
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 400);
+            DB::rollBack();
+            Log::error('Sector deletion error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return back()->withErrors(['error' => 'Sektor silinərkən xəta baş verdi']);
         }
     }
 
-    public function assignAdmin(StoreSectorAdminRequest $request, Sector $sector)
+    public function assignAdmin(Request $request, Sector $sector)
     {
         try {
-            $this->sectorService->assignAdmin($sector->id, $request->validated());
-            return redirect()
-                ->route('settings.personal.sectors.edit', $sector->id)
-                ->with('success', 'Admin uğurla təyin edildi');
-        } catch (\Exception $e) {
-            return back()
-                ->withInput()
-                ->with('error', 'Admin təyin edilərkən xəta baş verdi: ' . $e->getMessage());
-        }
-    }
+            DB::beginTransaction();
 
-    public function export(Request $request)
-    {
-        return $this->sectorService->exportToExcel($request->all());
+            $validatedData = $request->validate([
+                'user_id' => 'required|exists:users,id'
+            ]);
+
+            $sector->admin_id = $validatedData['user_id'];
+            $sector->save();
+
+            DB::commit();
+
+            return redirect()
+                ->route('settings.personal.sectors.edit', $sector)
+                ->with('success', 'Sektor admini uğurla təyin edildi');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Sector admin assignment error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return back()->withErrors(['error' => 'Sektor admini təyin edilərkən xəta baş verdi']);
+        }
     }
 }

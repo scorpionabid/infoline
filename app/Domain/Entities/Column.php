@@ -5,10 +5,13 @@ namespace App\Domain\Entities;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Carbon\Carbon;
 
 class Column extends Model
 {
+    use SoftDeletes;
+
     /**
      * The attributes that are mass assignable.
      *
@@ -23,7 +26,7 @@ class Column extends Model
         'options',
         'validation_rules',
         'order',
-        'status',
+        'is_active',
         'end_date',
         'input_limit'
     ];
@@ -35,7 +38,7 @@ class Column extends Model
      */
     protected $casts = [
         'required' => 'boolean',
-        'status' => 'boolean',
+        'is_active' => 'boolean',
         'options' => 'array',
         'validation_rules' => 'array',
         'end_date' => 'date',
@@ -49,10 +52,9 @@ class Column extends Model
      */
     protected $attributes = [
         'required' => false,
-        'status' => true,
-        'options' => '[]',
-        'validation_rules' => '[]',
-        'order' => 1
+        'is_active' => true,
+        'order' => 1,
+        'type' => 'text'
     ];
 
     /**
@@ -66,33 +68,37 @@ class Column extends Model
     /**
      * Get the data values for the column.
      */
-    public function dataValues(): HasMany
+    public function values(): HasMany
     {
         return $this->hasMany(DataValue::class);
     }
 
     /**
-     * Check if the column has expired.
+     * Check if the column is active.
      */
-    public function hasExpired(): bool
+    public function isActive(): bool
     {
-        if (!$this->end_date) {
+        if (!$this->is_active) {
             return false;
         }
 
-        return Carbon::now()->isAfter($this->end_date);
+        if ($this->end_date && Carbon::now()->isAfter($this->end_date)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
      * Check if the column has reached its input limit.
      */
-    public function hasReachedLimit(): bool
+    public function hasReachedInputLimit(): bool
     {
         if (!$this->input_limit) {
             return false;
         }
 
-        return $this->dataValues()->count() >= $this->input_limit;
+        return $this->values()->count() >= $this->input_limit;
     }
 
     /**
@@ -100,48 +106,14 @@ class Column extends Model
      */
     public function getValidationRules(): array
     {
-        $rules = [];
+        $rules = ['required' => $this->required];
 
-        // Əsas qaydalar
-        if ($this->required) {
-            $rules[] = 'required';
-        } else {
-            $rules[] = 'nullable';
+        if ($this->validation_rules) {
+            $rules = array_merge($rules, $this->validation_rules);
         }
 
-        // Növə görə qaydalar
-        switch ($this->type) {
-            case 'text':
-            case 'textarea':
-                $rules[] = 'string';
-                if (isset($this->validation_rules['min_length'])) {
-                    $rules[] = 'min:' . $this->validation_rules['min_length'];
-                }
-                if (isset($this->validation_rules['max_length'])) {
-                    $rules[] = 'max:' . $this->validation_rules['max_length'];
-                }
-                break;
-
-            case 'number':
-                $rules[] = 'numeric';
-                if (isset($this->validation_rules['min'])) {
-                    $rules[] = 'min:' . $this->validation_rules['min'];
-                }
-                if (isset($this->validation_rules['max'])) {
-                    $rules[] = 'max:' . $this->validation_rules['max'];
-                }
-                break;
-
-            case 'date':
-                $rules[] = 'date';
-                break;
-
-            case 'select':
-                $rules[] = 'string';
-                if (!empty($this->options)) {
-                    $rules[] = 'in:' . implode(',', $this->options);
-                }
-                break;
+        if ($this->type === 'select' && $this->options) {
+            $rules['in'] = array_keys($this->options);
         }
 
         return $rules;

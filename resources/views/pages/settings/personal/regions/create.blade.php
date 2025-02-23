@@ -1,40 +1,69 @@
-<div class="modal fade" id="regionModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Yeni Region</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="regionForm">
-                    @csrf
-                    <div id="regionFormErrors"></div>
-                    
-                    <div class="mb-3">
-                        <label for="name" class="form-label">Region Adı <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="name" name="name" required>
-                    </div>
+@extends('layouts.app')
 
-                    <div class="mb-3">
-                        <label for="code" class="form-label">Region Kodu <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="code" name="code" required>
-                    </div>
+@section('title', 'Yeni Region')
 
-                    <div class="mb-3">
-                        <label for="phone" class="form-label">Telefon <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="phone" name="phone" required>
-                    </div>
+@section('content')
+<div class="container-fluid">
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Yeni Region</h6>
+            <a href="{{ route('settings.personal.regions.index') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Geri
+            </a>
+        </div>
+        <div class="card-body">
+            @if ($errors->any())
+                <div class="alert alert-danger">
+                    <ul class="mb-0">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
 
-                    <div class="mb-3">
-                        <label for="description" class="form-label">Təsvir</label>
-                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Ləğv Et</button>
-                <button type="submit" class="btn btn-primary" form="regionForm">Yadda Saxla</button>
-            </div>
+            <form method="POST" action="{{ route('settings.personal.regions.store') }}">
+                @csrf
+                
+                <div class="mb-3">
+                    <label for="name" class="form-label">Region Adı <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control @error('name') is-invalid @enderror" 
+                           id="name" name="name" value="{{ old('name') }}" required>
+                    @error('name')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="mb-3">
+                    <label for="code" class="form-label">Region Kodu <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control @error('code') is-invalid @enderror" 
+                           id="code" name="code" value="{{ old('code') }}" required>
+                    @error('code')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="mb-3">
+                    <label for="phone" class="form-label">Telefon</label>
+                    <input type="text" class="form-control @error('phone') is-invalid @enderror" 
+                           id="phone" name="phone" value="{{ old('phone') }}">
+                    @error('phone')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="mb-3">
+                    <label for="description" class="form-label">Təsvir</label>
+                    <textarea class="form-control @error('description') is-invalid @enderror" 
+                              id="description" name="description" rows="3">{{ old('description') }}</textarea>
+                    @error('description')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <button type="submit" class="btn btn-primary">Yadda Saxla</button>
+            </form>
         </div>
     </div>
 </div>
+@endsection

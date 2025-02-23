@@ -51,5 +51,5 @@
 @endsection
 
 @push('js')
-<script src="{{ asset('js/settings/region.js') }}"></script>
+<script src="{{ asset('js/settings/regions.js') }}"></script>
 @endpush

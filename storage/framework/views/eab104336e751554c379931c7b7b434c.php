@@ -63,7 +63,7 @@
                                 <tr>
                                     <td><?php echo e($user->full_name); ?></td>
                                     <td><?php echo e($user->email); ?></td>
-                                    <td><?php echo e($user_types[$user->user_type] ?? $user->user_type); ?></td>
+                                    <td><?php echo e($user_types[$user->user_type->value] ?? $user->user_type->value); ?></td>
                                     <td><?php echo e($user->region->name ?? '-'); ?></td>
                                     <td><?php echo e($user->sector->name ?? '-'); ?></td>
                                     <td><?php echo e($user->school->name ?? '-'); ?></td>

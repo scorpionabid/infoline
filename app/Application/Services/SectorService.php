@@ -325,4 +325,29 @@ class SectorService
            'assigned_by' => auth()->id()
        ]);
    }
+
+   public function cleanupSoftDeleted(): int
+   {
+       try {
+           return DB::transaction(function () {
+               $deletedSectors = Sector::onlyTrashed()->get();
+               $count = 0;
+
+               foreach ($deletedSectors as $sector) {
+                   if ($sector->schools()->count() === 0) {
+                       $sector->forceDelete();
+                       $count++;
+                   }
+               }
+
+               return $count;
+           });
+       } catch (\Exception $e) {
+           Log::error('Error cleaning up soft deleted sectors', [
+               'error' => $e->getMessage(),
+               'trace' => $e->getTraceAsString()
+           ]);
+           throw $e;
+       }
+   }
 }

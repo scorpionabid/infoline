@@ -8,16 +8,30 @@ class UpdateRegionRequest extends FormRequest
 {
     public function authorize()
     {
-        return auth()->user()->hasRole('superadmin');
+        return auth()->user()->user_type === \App\Domain\Enums\UserType::SUPER_ADMIN->value;
     }
 
     public function rules()
     {
+        $region = $this->route('region');
+        
+        if (!$region) {
+            throw new \Illuminate\Database\Eloquent\ModelNotFoundException('Region not found');
+        }
+        
         return [
-            'name' => 'required|string|max:255|unique:regions,name,' . $this->region->id,
-            'code' => 'required|string|max:50|unique:regions,code,' . $this->region->id,
-            'phone' => 'required|string|max:20|unique:regions,phone,' . $this->region->id,
-            'description' => 'nullable|string|max:500'
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                \Illuminate\Validation\Rule::unique('regions', 'name')->ignore($region->id)
+            ],
+            'phone' => [
+                'nullable',
+                'string',
+                'max:20',
+                \Illuminate\Validation\Rule::unique('regions', 'phone')->ignore($region->id)
+            ]
         ];
     }
 
@@ -25,18 +39,22 @@ class UpdateRegionRequest extends FormRequest
     {
         return [
             'name.required' => 'Region adı daxil edilməlidir',
+            'name.string' => 'Region adı mətn olmalıdır',
             'name.max' => 'Region adı :max simvoldan çox ola bilməz',
             'name.unique' => 'Bu region adı artıq mövcuddur',
             
-            'code.required' => 'Region kodu daxil edilməlidir',
-            'code.max' => 'Region kodu :max simvoldan çox ola bilməz',
-            'code.unique' => 'Bu region kodu artıq mövcuddur',
-            
-            'phone.required' => 'Telefon nömrəsi daxil edilməlidir',
+            'phone.string' => 'Telefon nömrəsi mətn olmalıdır',
             'phone.max' => 'Telefon nömrəsi :max simvoldan çox ola bilməz',
-            'phone.unique' => 'Bu telefon nömrəsi artıq mövcuddur',
-            
-            'description.max' => 'Təsvir :max simvoldan çox ola bilməz'
+            'phone.unique' => 'Bu telefon nömrəsi artıq mövcuddur'
         ];
+    }
+
+    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator)
+    {
+        throw new \Illuminate\Validation\ValidationException($validator, response()->json([
+            'success' => false,
+            'message' => 'Validasiya xətası',
+            'errors' => $validator->errors()
+        ], 422));
     }
 }

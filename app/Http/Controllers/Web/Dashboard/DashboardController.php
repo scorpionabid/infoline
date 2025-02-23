@@ -25,7 +25,47 @@ class DashboardController extends Controller
         } else {
             return redirect()->route('dashboard.school-admin');
         }
+        $data = [
+            'regionCount' => Region::count(),
+            'sectorCount' => Sector::count(), 
+            'schoolCount' => School::count(),
+            'userCount' => User::count(),
+        
+        // Filter options
+            'sectors' => Sector::all(),
+            'categories' => Category::all()
+        ];
+
+    // Handle filters
+        $query = SchoolData::with(['school.sector', 'category']);
+
+        if ($sectorId = request('sector_id')) {
+            $query->whereHas('school', function($q) use ($sectorId) {
+                $q->where('sector_id', $sectorId);
+            });
+        }
+
+        if ($categoryId = request('category_id')) {
+            $query->where('category_id', $categoryId); 
+        }
+
+        if ($status = request('status')) {
+            $query->where('status', $status);
+        }
+
+    // Handle export
+        if (request('export')) {
+            return Excel::download(
+                new SchoolDataExport($query->get()),
+                'school-data.xlsx'
+            );
+        }
+
+        $data['schoolData'] = $query->paginate(15);
+
+        return view('pages.dashboard.super-admin', $data);
     }
+    
 
     /**
      * SuperAdmin dashboard

@@ -46,12 +46,29 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'utis_code',
         'user_type',
+        'role',
         'region_id',
         'sector_id',
         'school_id',
         'last_login_at',
         'last_login_ip',
         'is_active'
+    ];
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'user_type' => UserType::class,
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+        'last_login_at' => 'datetime',
+        'is_active' => 'boolean',
+        'region_id' => 'integer',
+        'sector_id' => 'integer',
+        'school_id' => 'integer'
     ];
 
     /**
@@ -65,27 +82,18 @@ class User extends Authenticatable implements MustVerifyEmail
     ];
 
     /**
-     * The attributes that should be cast.
-     *
-     * @var array
-     */
-    protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-        'last_login_at' => 'datetime',
-        'user_type' => 'string',
-        'is_active' => 'boolean',
-        'region_id' => 'integer',
-        'sector_id' => 'integer',
-        'school_id' => 'integer'
-    ];
-
-    /**
      * The relationships that should be eager loaded.
      *
      * @var array
      */
     protected $with = ['roles', 'permissions'];
+
+    /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = ['full_name'];
 
     /**
      * Relationship: Region
@@ -205,7 +213,7 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function isSuperAdmin(): bool
     {
-        return $this->user_type === 'superadmin';
+        return $this->user_type === UserType::SUPER_ADMIN;
     }
 
     /**
@@ -215,7 +223,7 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function isSectorAdmin(): bool
     {
-        return $this->user_type === 'sector-admin';
+        return $this->user_type === UserType::SECTOR_ADMIN;
     }
 
     /**
@@ -225,7 +233,7 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function isSchoolAdmin(): bool
     {
-        return $this->user_type === 'school-admin';
+        return $this->user_type === UserType::SCHOOL_ADMIN;
     }
 
     /**

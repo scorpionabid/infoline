@@ -82,7 +82,6 @@
         </div>
     </div>
 
-    @if(!$sector->admin)
     <!-- Assign Admin Section -->
     <div class="row mt-4">
         <div class="col-12">
@@ -92,88 +91,29 @@
                     <form action="{{ route('settings.personal.sectors.assign-admin', $sector->id) }}" method="POST">
                         @csrf
                         <div class="row">
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <div class="mb-3">
-                                    <label for="full_name" class="form-label">Ad Soyad <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control @error('full_name') is-invalid @enderror" 
-                                           id="full_name" name="full_name" required>
-                                    @error('full_name')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
-                                    <input type="email" class="form-control @error('email') is-invalid @enderror" 
-                                           id="email" name="email" required>
-                                    @error('email')
-                                        <div class="invalid-feedback">{{ $message }}</div>
-                                    @enderror
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-3">
-                                    <label for="phone" class="form-label">Telefon <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control @error('phone') is-invalid @enderror" 
-                                           id="phone" name="phone" required>
-                                    @error('phone')
+                                    <label for="user_id" class="form-label">Admin <span class="text-danger">*</span></label>
+                                    <select class="form-control select2 @error('user_id') is-invalid @enderror" 
+                                            id="user_id" name="user_id" required>
+                                        <option value="">Seçin</option>
+                                        @foreach($users as $user)
+                                            <option value="{{ $user->id }}" 
+                                                {{ old('user_id', $sector->admin_id) == $user->id ? 'selected' : '' }}>
+                                                {{ $user->full_name }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('user_id')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
                             </div>
                         </div>
                         <div class="text-end">
-                            <button type="submit" class="btn btn-success">Admin Təyin Et</button>
+                            <button type="submit" class="btn btn-primary">Təyin Et</button>
                         </div>
                     </form>
-                </div>
-            </div>
-        </div>
-    </div>
-    @endif
-
-    <!-- Sektor Admin Modal -->
-    <div class="modal fade" id="sectorAdminModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Sektor Admini Təyin Et</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="sectorAdminForm">
-                        @csrf
-                        <div id="adminFormErrors"></div>
-                        
-                        <div class="mb-3">
-                            <label for="full_name" class="form-label">Ad Soyad <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="full_name" name="full_name" required>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
-                            <input type="email" class="form-control" id="email" name="email" required>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="phone" class="form-label">Telefon <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="phone" name="phone" required>
-                        </div>
-
-                        <div class="mb-3">
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" id="send_credentials" name="send_credentials">
-                                <label class="form-check-label" for="send_credentials">
-                                    Giriş məlumatlarını email ilə göndər
-                                </label>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Ləğv Et</button>
-                    <button type="submit" class="btn btn-primary" form="sectorAdminForm">Təyin Et</button>
                 </div>
             </div>
         </div>
@@ -183,21 +123,18 @@
 
 @push('css')
 <link href="{{ asset('assets/libs/select2/select2.min.css') }}" rel="stylesheet" type="text/css" />
+<link href="{{ asset('assets/libs/select2/select2-bootstrap-5-theme.min.css') }}" rel="stylesheet" type="text/css" />
 @endpush
 
 @push('js')
 <script src="{{ asset('assets/libs/select2/select2.min.js') }}"></script>
 <script>
     $(document).ready(function() {
-        $('.select2').select2();
-    });
-</script>
-<script>
-    // Admin təyin etmə düyməsinin hadisəsini əlavə et
-    $(document).on('click', '.assign-admin-btn', function(e) {
-        e.preventDefault();
-        const sectorId = $(this).data('sector-id');
-        SectorManager.showAdminModal(sectorId);
+        $('.select2').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Seçin'
+        });
     });
 </script>
 @endpush

@@ -16,8 +16,12 @@ return new class extends Migration
             $table->string('name');
             $table->text('description')->nullable();
             $table->enum('type', ['standard', 'dynamic', 'report'])->default('standard');
-            $table->boolean('status')->default(true);
+            $table->json('settings')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->integer('order')->default(0);
+            $table->foreignId('parent_id')->nullable()->constrained('categories')->onDelete('cascade');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

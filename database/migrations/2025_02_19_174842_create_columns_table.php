@@ -21,10 +21,11 @@ return new class extends Migration
             $table->json('options')->nullable();
             $table->json('validation_rules')->nullable();
             $table->integer('order')->default(1);
-            $table->boolean('status')->default(true);
+            $table->boolean('is_active')->default(true);
             $table->date('end_date')->nullable();
             $table->integer('input_limit')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

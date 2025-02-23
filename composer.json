@@ -9,9 +9,10 @@
         "laravel/framework": "^10.0",
         "laravel/sanctum": "^3.3",
         "laravel/tinker": "^2.0",
-        "nesbot/carbon": "^2.71.0",
+        "maatwebsite/excel": "^3.1.63",
+        "nesbot/carbon": "^2.71",
         "phpmailer/phpmailer": "^6.8",
-        "phpoffice/phpspreadsheet": "^3.8",
+        "phpoffice/phpspreadsheet": "^1.29.9",
         "predis/predis": "^2.3",
         "spatie/laravel-activitylog": "^4.10",
         "vlucas/phpdotenv": "^5.5"

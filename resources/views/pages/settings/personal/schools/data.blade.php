@@ -298,7 +298,7 @@ $(document).ready(function() {
         const id = $('#edit_data_id').val();
         
         $.ajax({
-            url: `/settings/personal/schools/data/${id}`,
+            url: "{{ route('settings.personal.schools.data.update', ['id' => ':id']) }}".replace(':id', id),
             type: 'PUT',
             data: {
                 category_id: $('#edit_category_id').val(),
@@ -332,7 +332,7 @@ $(document).ready(function() {
         }).then((result) => {
             if (result.isConfirmed) {
                 $.ajax({
-                    url: `/settings/personal/schools/data/${id}`,
+                    url: "{{ route('settings.personal.schools.data.destroy', ['id' => ':id']) }}".replace(':id', id),
                     type: 'DELETE',
                     data: {
                         _token: '{{ csrf_token() }}'

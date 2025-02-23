@@ -17,6 +17,9 @@ class LogRequests
         // Unique request ID
         $requestId = uniqid('req_');
         
+        // User ID-ni təyin et
+        $userId = $request->user() ? $request->user()->id : 0;
+        
         // Request məlumatlarını logla
         Log::info('Request Started', [
             'request_id' => $requestId,
@@ -24,7 +27,7 @@ class LogRequests
             'url' => $request->fullUrl(),
             'ip' => $request->ip(),
             'user_agent' => $request->header('User-Agent'),
-            'user_id' => $request->user()?->id,
+            'user_id' => $userId,
             'params' => $this->filterSensitiveData($request->all())
         ]);
 
@@ -40,6 +43,7 @@ class LogRequests
             'duration_ms' => $duration,
             'status' => $response->getStatusCode(),
             'memory_usage' => $this->formatBytes(memory_get_peak_usage()),
+            'user_id' => $userId
         ]);
 
         return $response;

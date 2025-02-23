@@ -49,7 +49,9 @@ class WebAuthController extends Controller
             // Debug məlumatları
             Log::info('Login attempt', [
                 'email' => $credentials['email'],
-                'remember' => $remember
+                'remember' => $remember,
+                'session_id' => $request->session()->getId(),
+                'session_driver' => config('session.driver')
             ]);
 
             if ($this->hasTooManyLoginAttempts($request)) {
@@ -69,8 +71,13 @@ class WebAuthController extends Controller
             if ($user) {
                 Log::info('User found:', [
                     'id' => $user->id,
+                    'email' => $user->email,
                     'user_type' => $user->user_type,
                     'is_active' => $user->is_active
+                ]);
+            } else {
+                Log::warning('User not found:', [
+                    'email' => $credentials['email']
                 ]);
             }
 
@@ -78,6 +85,11 @@ class WebAuthController extends Controller
                 $request->session()->regenerate();
                 
                 $user = Auth::user();
+                
+                Log::info('Login successful', [
+                    'user_id' => $user->id,
+                    'session_id' => $request->session()->getId()
+                ]);
                 
                 // Login məlumatlarını yeniləyirik
                 $user->last_login_at = now();
@@ -89,23 +101,33 @@ class WebAuthController extends Controller
                 return $this->redirectBasedOnRole($user);
             }
 
-            // Debug məlumatları
-            Log::error('Authentication failed:', [
-                'email' => $credentials['email']
+            // Login uğursuz oldu
+            Log::warning('Login failed', [
+                'email' => $credentials['email'],
+                'ip' => $request->ip()
             ]);
 
             $this->incrementLoginAttempts($request);
             
-            throw ValidationException::withMessages([
-                'email' => ['Daxil etdiyiniz məlumatlar yanlışdır.'],
-            ]);
+            event(new FailedLoginAttemptEvent(
+                $request->email,
+                $request->ip(),
+                $this->getLoginAttempts($request)
+            ));
+
+            return back()
+                ->withInput($request->only('email', 'remember'))
+                ->withErrors(['email' => __('auth.failed')]);
+
         } catch (\Exception $e) {
-            Log::error('Login error: ' . $e->getMessage(), [
-                'exception' => get_class($e),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+            Log::error('Login error', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
-            return back()->withErrors(['email' => 'Sistemə giriş zamanı xəta baş verdi.']);
+            
+            return back()
+                ->withInput($request->only('email', 'remember'))
+                ->withErrors(['email' => 'Sistemə giriş zamanı xəta baş verdi.']);
         }
     }
 

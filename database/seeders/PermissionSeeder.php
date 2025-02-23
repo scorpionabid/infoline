@@ -1,64 +1,65 @@
 <?php
 
-namespace Database\seeders;
+namespace Database\Seeders;
 
-use App\Domain\Entities\Permission;
 use Illuminate\Database\Seeder;
+use App\Domain\Entities\Permission;
+use Illuminate\Support\Str;
 
 class PermissionSeeder extends Seeder
 {
-   public function run(): void
-   {
-       // Admin idarəetmə icazələri
-       $adminPermissions = [
-           [
-               'name' => 'Sektor admin idarəetmə',
-               'slug' => 'manage-sector-admins',
-               'description' => 'Sektor adminlərini yaratmaq, redaktə və silmək',
-               'group' => 'admin-management'
-           ],
-           [
-               'name' => 'Məktəb admin idarəetmə',
-               'slug' => 'manage-school-admins',
-               'description' => 'Məktəb adminlərini yaratmaq, redaktə və silmək',
-               'group' => 'admin-management'
-           ],
-       ];
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // User Management
+        $this->createPermission('view-users', 'View users', 'user');
+        $this->createPermission('create-users', 'Create users', 'user');
+        $this->createPermission('edit-users', 'Edit users', 'user');
+        $this->createPermission('delete-users', 'Delete users', 'user');
 
-       // Kateqoriya və sütun icazələri
-       $categoryPermissions = [
-           [
-               'name' => 'Kateqoriya idarəetmə',
-               'slug' => 'manage-categories',
-               'description' => 'Kateqoriyaları yaratmaq, redaktə və silmək',
-               'group' => 'category-management'
-           ],
-           [
-               'name' => 'Sütun idarəetmə',
-               'slug' => 'manage-columns',
-               'description' => 'Sütunları yaratmaq, redaktə və silmək',
-               'group' => 'category-management'
-           ],
-       ];
+        // Role Management
+        $this->createPermission('view-roles', 'View roles', 'role');
+        $this->createPermission('create-roles', 'Create roles', 'role');
+        $this->createPermission('edit-roles', 'Edit roles', 'role');
+        $this->createPermission('delete-roles', 'Delete roles', 'role');
 
-       // Məktəb məlumatları icazələri
-       $schoolPermissions = [
-           [
-               'name' => 'Məktəb məlumatları idarəetmə',
-               'slug' => 'manage-school-data',
-               'description' => 'Məktəb məlumatlarını yaratmaq, redaktə və silmək',
-               'group' => 'school-management'
-           ],
-       ];
+        // Region Management
+        $this->createPermission('view-regions', 'View regions', 'region');
+        $this->createPermission('create-regions', 'Create regions', 'region');
+        $this->createPermission('edit-regions', 'Edit regions', 'region');
+        $this->createPermission('delete-regions', 'Delete regions', 'region');
 
-       // Bütün icazələri bir array-də birləşdirib yaradaq
-       $allPermissions = array_merge($adminPermissions, $categoryPermissions, $schoolPermissions);
-       
-       foreach ($allPermissions as $permission) {
-           Permission::firstOrCreate(
-               ['slug' => $permission['slug']],
-               $permission
-           );  
-       }
-   }
+        // Sector Management
+        $this->createPermission('view-sectors', 'View sectors', 'sector');
+        $this->createPermission('create-sectors', 'Create sectors', 'sector');
+        $this->createPermission('edit-sectors', 'Edit sectors', 'sector');
+        $this->createPermission('delete-sectors', 'Delete sectors', 'sector');
+
+        // School Management
+        $this->createPermission('view-schools', 'View schools', 'school');
+        $this->createPermission('create-schools', 'Create schools', 'school');
+        $this->createPermission('edit-schools', 'Edit schools', 'school');
+        $this->createPermission('delete-schools', 'Delete schools', 'school');
+
+        // Category Management
+        $this->createPermission('view-categories', 'View categories', 'category');
+        $this->createPermission('create-categories', 'Create categories', 'category');
+        $this->createPermission('edit-categories', 'Edit categories', 'category');
+        $this->createPermission('delete-categories', 'Delete categories', 'category');
+    }
+
+    /**
+     * Create a new permission
+     */
+    private function createPermission(string $name, string $description, string $group): void
+    {
+        Permission::create([
+            'name' => $name,
+            'slug' => Str::slug($name),
+            'description' => $description,
+            'group' => $group
+        ]);
+    }
 }

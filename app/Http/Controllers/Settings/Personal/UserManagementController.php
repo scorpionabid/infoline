@@ -7,6 +7,7 @@ use App\Domain\Entities\Role;
 use App\Domain\Entities\Region;
 use App\Domain\Entities\Sector;
 use App\Domain\Entities\School;
+use App\Domain\Enums\UserType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\User\StoreUserRequest;
 use App\Http\Requests\Settings\User\UpdateUserRequest;
@@ -23,8 +24,8 @@ class UserManagementController extends Controller
     {
         // Superadmin yalnız sektor və məktəb adminləri yarada bilər
         $user_types = [
-            'sectoradmin' => 'Sektor Admin',
-            'schooladmin' => 'Məktəb Admin'
+            UserType::SECTOR_ADMIN->value => 'Sektor Admin',
+            UserType::SCHOOL_ADMIN->value => 'Məktəb Admin'
         ];
 
         $users = User::with(['region', 'sector', 'school'])
@@ -51,8 +52,8 @@ class UserManagementController extends Controller
     {
         // Superadmin yalnız sektor və məktəb adminləri yarada bilər
         $user_types = [
-            'sectoradmin' => 'Sektor Admin',
-            'schooladmin' => 'Məktəb Admin'
+            UserType::SECTOR_ADMIN->value => 'Sektor Admin',
+            UserType::SCHOOL_ADMIN->value => 'Məktəb Admin'
         ];
 
         $regions = Region::orderBy('name')->get();

@@ -84,13 +84,18 @@
 
 @push('css')
 <link href="{{ asset('assets/libs/select2/select2.min.css') }}" rel="stylesheet" type="text/css" />
+<link href="{{ asset('assets/libs/select2/select2-bootstrap-5-theme.min.css') }}" rel="stylesheet" type="text/css" />
 @endpush
 
 @push('js')
 <script src="{{ asset('assets/libs/select2/select2.min.js') }}"></script>
 <script>
     $(document).ready(function() {
-        $('.select2').select2();
+        $('.select2').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Region seçin'
+        });
     });
 </script>
 @endpush

@@ -8,16 +8,14 @@ class StoreRegionRequest extends FormRequest
 {
     public function authorize()
     {
-        return auth()->user()->hasRole('superadmin');
+        return auth()->user()->user_type === \App\Domain\Enums\UserType::SUPER_ADMIN->value;
     }
 
     public function rules()
     {
         return [
             'name' => 'required|string|max:255|unique:regions,name',
-            'code' => 'required|string|max:50|unique:regions,code',
-            'phone' => 'required|string|max:20|unique:regions,phone',
-            'description' => 'nullable|string|max:500'
+            'phone' => 'nullable|string|max:20|unique:regions,phone'
         ];
     }
 
@@ -28,15 +26,8 @@ class StoreRegionRequest extends FormRequest
             'name.max' => 'Region adı :max simvoldan çox ola bilməz',
             'name.unique' => 'Bu region adı artıq mövcuddur',
             
-            'code.required' => 'Region kodu daxil edilməlidir',
-            'code.max' => 'Region kodu :max simvoldan çox ola bilməz',
-            'code.unique' => 'Bu region kodu artıq mövcuddur',
-            
-            'phone.required' => 'Telefon nömrəsi daxil edilməlidir',
             'phone.max' => 'Telefon nömrəsi :max simvoldan çox ola bilməz',
-            'phone.unique' => 'Bu telefon nömrəsi artıq mövcuddur',
-            
-            'description.max' => 'Təsvir :max simvoldan çox ola bilməz'
+            'phone.unique' => 'Bu telefon nömrəsi artıq mövcuddur'
         ];
     }
 }

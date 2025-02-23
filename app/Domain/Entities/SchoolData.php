@@ -35,4 +35,23 @@ class SchoolData extends Model
     {
         return $this->belongsTo(Category::class);
     }
+    public function getStatusColor()
+    {
+        return match($this->status) {
+            'completed' => 'success',
+            'pending' => 'warning',
+            'expired' => 'danger',
+            default => 'secondary'
+        };
+    }
+
+    public function getStatusText()
+    {
+        return match($this->status) {
+            'completed' => 'Tamamlanıb',
+            'pending' => 'Gözləyir',
+            'expired' => 'Vaxtı keçib',
+            default => 'Naməlum'
+        };
+    }
 }

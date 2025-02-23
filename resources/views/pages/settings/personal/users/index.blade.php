@@ -65,7 +65,7 @@
                                 <tr>
                                     <td>{{ $user->full_name }}</td>
                                     <td>{{ $user->email }}</td>
-                                    <td>{{ $user_types[$user->user_type] ?? $user->user_type }}</td>
+                                    <td>{{ $user_types[$user->user_type->value] ?? $user->user_type->value }}</td>
                                     <td>{{ $user->region->name ?? '-' }}</td>
                                     <td>{{ $user->sector->name ?? '-' }}</td>
                                     <td>{{ $user->school->name ?? '-' }}</td>

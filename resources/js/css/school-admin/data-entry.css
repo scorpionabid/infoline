@@ -1,0 +1,71 @@
+/* resources/css/school-admin/data-entry.css */
+
+.column-input {
+    position: relative;
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+    min-width: 250px;
+    animation: fadeInOut 3s ease-in-out;
+}
+
+.new-column {
+    animation: highlight 2s ease-in-out;
+}
+
+@keyframes fadeInOut {
+    0% {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+
+    10% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    90% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+}
+
+@keyframes highlight {
+    0% {
+        background-color: rgba(0, 123, 255, 0.1);
+    }
+
+    100% {
+        background-color: transparent;
+    }
+}
+
+/* Validation styles */
+.is-invalid {
+    border-color: #dc3545;
+}
+
+.is-valid {
+    border-color: #28a745;
+}
+
+.invalid-feedback {
+    display: none;
+    width: 100%;
+    margin-top: 0.25rem;
+    font-size: 80%;
+    color: #dc3545;
+}
+
+.is-invalid~.invalid-feedback {
+    display: block;
+}

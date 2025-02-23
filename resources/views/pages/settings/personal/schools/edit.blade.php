@@ -163,16 +163,30 @@
                 <div class="card-body">
                     <div class="mb-4">
                         <h4 class="small font-weight-bold">Məlumat Tamamlanması 
-                            <span class="float-right">{{ $dataCompletion }}%</span>
+                            <span class="float-right">{{ $dataCompletion['percentage'] }}%</span>
                         </h4>
                         <div class="progress">
-                            <div class="progress-bar bg-{{ $dataCompletion < 50 ? 'danger' : ($dataCompletion < 80 ? 'warning' : 'success') }}" 
-                                 role="progressbar" style="width: {{ $dataCompletion }}%"></div>
+                            <div class="progress-bar bg-{{ $dataCompletion['percentage'] < 50 ? 'danger' : ($dataCompletion['percentage'] < 80 ? 'warning' : 'success') }}" 
+                                 role="progressbar" style="width: {{ $dataCompletion['percentage'] }}%"></div>
                         </div>
+
+                        <!-- Kateqoriyalar üzrə tamamlanma -->
+                        @foreach($dataCompletion['categories'] as $categoryName => $stats)
+                            <div class="mt-3">
+                                <h6 class="small font-weight-bold">{{ $categoryName }}
+                                    <span class="float-right">{{ $stats['percentage'] }}%</span>
+                                </h6>
+                                <div class="progress">
+                                    <div class="progress-bar bg-info" 
+                                         role="progressbar" 
+                                         style="width: {{ $stats['percentage'] }}%"></div>
+                                </div>
+                            </div>
+                        @endforeach
                     </div>
 
                     <div class="text-center">
-                        <a href="{{ route('settings.personal.schools.data', $school) }}" class="btn btn-info btn-sm">
+                        <a href="{{ route('settings.personal.schools.show.data', $school) }}" class="btn btn-info btn-sm">
                             <i class="fas fa-database"></i> Məlumatları İdarə Et
                         </a>
                     </div>
@@ -181,35 +195,40 @@
 
             <!-- Məktəb Administratoru -->
             <div class="card shadow mb-4">
-                <div class="card-header py-3">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
                     <h6 class="m-0 font-weight-bold text-primary">Məktəb Administratoru</h6>
+                    <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#createAdminModal">
+                        <i class="fas fa-plus"></i> Yeni Admin
+                    </button>
                 </div>
                 <div class="card-body">
                     @if($school->admin)
                         <div class="text-center mb-3">
-                            <img src="{{ $school->admin->avatar_url }}" 
-                                 alt="{{ $school->admin->name }}" 
+                            <img src="{{ $school->admin->avatar_url ?? asset('images/default-avatar.png') }}" 
+                                 alt="{{ $school->admin->first_name }} {{ $school->admin->last_name }}" 
                                  class="img-profile rounded-circle" 
                                  style="width: 100px; height: 100px;">
                         </div>
-                        <h5 class="text-center mb-3">{{ $school->admin->name }}</h5>
+                        <h5 class="text-center mb-3">{{ $school->admin->first_name }} {{ $school->admin->last_name }}</h5>
                         <p class="text-center mb-2">
                             <i class="fas fa-envelope"></i> {{ $school->admin->email }}
                         </p>
                         <p class="text-center">
-                            <i class="fas fa-phone"></i> {{ $school->admin->phone }}
+                            <i class="fas fa-phone"></i> {{ $school->admin->phone ?? 'Təyin edilməyib' }}
                         </p>
+                        <div class="text-center mt-3">
+                            <button type="button" class="btn btn-danger btn-sm" onclick="removeAdmin()">
+                                <i class="fas fa-user-minus"></i> Adminı Sil
+                            </button>
+                        </div>
                     @else
                         <div class="text-center">
-                            <p class="mb-3">Administrator təyin edilməyib</p>
+                            <p class="mb-3">Bu məktəbə hələ administrator təyin edilməyib.</p>
+                            <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#assignAdminModal">
+                                <i class="fas fa-user-plus"></i> Admin Təyin Et
+                            </button>
                         </div>
                     @endif
-
-                    <div class="text-center mt-3">
-                        <button type="button" class="btn btn-primary btn-sm" data-toggle="modal" data-target="#assignAdminModal">
-                            <i class="fas fa-user-plus"></i> Administrator Təyin Et
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
@@ -220,6 +239,166 @@
 <div class="modal fade" id="assignAdminModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Administrator Təyin Et</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="admin_id">Administrator Seçin</label>
+                    <select class="form-control" id="admin_id" name="admin_id">
+                        <option value="">Seçin...</option>
+                        @foreach($availableAdmins as $admin)
+                            <option value="{{ $admin->id }}">{{ $admin->first_name }} {{ $admin->last_name }} ({{ $admin->email }})</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Bağla</button>
+                <button type="button" class="btn btn-primary" onclick="assignAdmin()">Təyin Et</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Yeni Administrator Yaratma Modal -->
+<div class="modal fade" id="createAdminModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Yeni Administrator</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="createAdminForm">
+                    <div class="form-group">
+                        <label for="first_name">Ad <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="first_name" name="first_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="last_name">Soyad <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="last_name" name="last_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="username">İstifadəçi adı <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Şifrə <span class="text-danger">*</span></label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="utis_code">UTİS Kodu <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="utis_code" name="utis_code" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Telefon</label>
+                        <input type="text" class="form-control" id="phone" name="phone">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Bağla</button>
+                <button type="button" class="btn btn-primary" onclick="createAdmin()">Yarat</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@push('scripts')
+<script>
+function createAdmin() {
+    const form = document.getElementById('createAdminForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+
+    axios.post('{{ route("settings.personal.schools.admins.create") }}', data)
+        .then(response => {
+            if (response.data.success) {
+                toastr.success(response.data.message);
+                $('#createAdminModal').modal('hide');
+                // Yeni admin yaradıldıqdan sonra siyahını yeniləyirik
+                loadAvailableAdmins();
+            }
+        })
+        .catch(error => {
+            if (error.response.data.errors) {
+                Object.values(error.response.data.errors).forEach(error => {
+                    toastr.error(error[0]);
+                });
+            } else {
+                toastr.error(error.response.data.message || 'Xəta baş verdi');
+            }
+        });
+}
+
+function assignAdmin() {
+    const adminId = document.getElementById('admin_id').value;
+    if (!adminId) {
+        toastr.error('Administrator seçilməlidir');
+        return;
+    }
+
+    axios.post('{{ route("settings.personal.schools.assign-admin", $school) }}', { admin_id: adminId })
+        .then(response => {
+            if (response.data.success) {
+                toastr.success(response.data.message);
+                $('#assignAdminModal').modal('hide');
+                // Səhifəni yeniləyirik
+                window.location.reload();
+            }
+        })
+        .catch(error => {
+            toastr.error(error.response.data.message || 'Xəta baş verdi');
+        });
+}
+
+function removeAdmin() {
+    if (!confirm('Administratoru silmək istədiyinizə əminsiniz?')) {
+        return;
+    }
+
+    axios.delete('{{ route("settings.personal.schools.remove-admin", $school) }}')
+        .then(response => {
+            if (response.data.success) {
+                toastr.success(response.data.message);
+                // Səhifəni yeniləyirik
+                window.location.reload();
+            }
+        })
+        .catch(error => {
+            toastr.error(error.response.data.message || 'Xəta baş verdi');
+        });
+}
+
+function loadAvailableAdmins() {
+    axios.get('{{ route("settings.personal.schools.admins.available") }}')
+        .then(response => {
+            const select = document.getElementById('admin_id');
+            select.innerHTML = '<option value="">Seçin...</option>';
+            
+            response.data.forEach(admin => {
+                const option = document.createElement('option');
+                option.value = admin.id;
+                option.textContent = `${admin.first_name} ${admin.last_name} (${admin.email})`;
+                select.appendChild(option);
+            });
+        })
+        .catch(error => {
+            toastr.error('Administratorlar yüklənərkən xəta baş verdi');
+        });
+}
+</script>
+@endpush        <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Administrator Təyin Et</h5>
                 <button type="button" class="close" data-dismiss="modal">

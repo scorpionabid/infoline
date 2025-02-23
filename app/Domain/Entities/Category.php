@@ -4,9 +4,13 @@ namespace App\Domain\Entities;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Category extends Model
 {
+    use SoftDeletes;
+
     /**
      * The attributes that are mass assignable.
      *
@@ -15,7 +19,11 @@ class Category extends Model
     protected $fillable = [
         'name',
         'description',
-        'status'
+        'settings',
+        'is_active',
+        'order',
+        'parent_id',
+        'field_count'
     ];
 
     /**
@@ -24,7 +32,8 @@ class Category extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'status' => 'boolean'
+        'is_active' => 'boolean',
+        'settings' => 'array'
     ];
 
     /**
@@ -33,8 +42,17 @@ class Category extends Model
      * @var array
      */
     protected $attributes = [
-        'status' => true
+        'is_active' => true,
+        'order' => 0
     ];
+
+    /**
+     * Get the fields for the category.
+     */
+    public function fields(): HasMany
+    {
+        return $this->hasMany(CategoryField::class);
+    }
 
     /**
      * Get the columns for the category.
@@ -45,42 +63,34 @@ class Category extends Model
     }
 
     /**
+     * Get the parent category.
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'parent_id');
+    }
+
+    /**
+     * Get the child categories.
+     */
+    public function children(): HasMany
+    {
+        return $this->hasMany(Category::class, 'parent_id');
+    }
+
+    /**
      * Check if the category has any active columns.
      */
     public function hasActiveColumns(): bool
     {
-        return $this->columns()->where('status', true)->exists();
+        return $this->columns()->where('is_active', true)->exists();
     }
 
     /**
-     * Get the number of active columns.
+     * Get active columns for the category.
      */
-    public function getActiveColumnsCount(): int
+    public function getActiveColumns(): HasMany
     {
-        return $this->columns()->where('status', true)->count();
-    }
-
-    /**
-     * Check if the category has any data.
-     */
-    public function hasData(): bool
-    {
-        return $this->columns()->whereHas('dataValues')->exists();
-    }
-
-    /**
-     * Get the validation rules for all columns.
-     */
-    public function getValidationRules(): array
-    {
-        $rules = [];
-
-        foreach ($this->columns as $column) {
-            if ($column->status) {
-                $rules[$column->name] = implode('|', $column->getValidationRules());
-            }
-        }
-
-        return $rules;
+        return $this->columns()->where('is_active', true)->orderBy('order');
     }
 }

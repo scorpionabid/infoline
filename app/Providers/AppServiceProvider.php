@@ -1,7 +1,25 @@
+<?php
 
+namespace App\Providers;
 
-public function boot()
+use Illuminate\Support\ServiceProvider;
+
+class AppServiceProvider extends ServiceProvider
 {
-    // Error mesajlarını override et
-    $this->loadTranslationsFrom(resource_path('lang/az'), 'messages');
+    /**
+     * Register any application services.
+     */
+    public function register(): void
+    {
+        //
+    }
+
+    /**
+     * Bootstrap any application services.
+     */
+    public function boot(): void
+    {
+        // Error mesajlarını override et
+        $this->loadTranslationsFrom(resource_path('lang/az'), 'messages');
+    }
 }

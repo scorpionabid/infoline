@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Domain\Entities\Category;
+use Illuminate\Support\Facades\Log;
 
 class School extends Model
 {
@@ -40,6 +42,53 @@ class School extends Model
     protected static function newFactory()
     {
         return SchoolFactory::new();
+    }
+
+    /**
+     * Calculate data completion percentage
+     *
+     * @return array
+     */
+    public function calculateDataCompletion(): array
+    {
+        $this->loadMissing('data.category.fields');
+
+        $totalFields = 0;
+        $completedFields = 0;
+        $categoryCompletion = [];
+
+        foreach ($this->data as $data) {
+            $category = $data->category;
+            $fields = $category->fields;
+
+            if ($fields->isEmpty()) {
+                continue;
+            }
+
+            $categoryTotal = $fields->count();
+            $categoryCompleted = 0;
+
+            foreach ($fields as $field) {
+                $totalFields++;
+                if (!empty($data->data[$field->name])) {
+                    $completedFields++;
+                    $categoryCompleted++;
+                }
+            }
+
+            $categoryCompletion[$category->name] = [
+                'total' => $categoryTotal,
+                'completed' => $categoryCompleted,
+                'percentage' => $categoryTotal > 0 ? round(($categoryCompleted / $categoryTotal) * 100) : 0
+            ];
+        }
+
+        return [
+            'total' => $totalFields,
+            'completed' => $completedFields,
+            'percentage' => $totalFields > 0 ? round(($completedFields / $totalFields) * 100) : 0,
+            'categories' => $categoryCompletion
+        ];
     }
 
     // Sektor ilə əlaqə (many-to-one)
@@ -95,11 +144,18 @@ class School extends Model
     // Məktəbin məlumat doldurma faizini hesablamaq üçün
     public function getDataCompletionPercentageAttribute(): int
     {
-        $totalFields = Category::sum('field_count');
-        if ($totalFields === 0) return 0;
-
-        $filledFields = $this->data()->count();
-        return (int) (($filledFields / $totalFields) * 100);
+        try {
+            $totalFields = Category::sum('field_count') ?: 1; // Default to 1 to avoid division by zero
+            $filledFields = $this->data()->count();
+            $percentage = ($filledFields / $totalFields) * 100;
+            return min(100, max(0, (int) $percentage)); // Ensure percentage is between 0 and 100
+        } catch (\Exception $e) {
+            Log::error('Error calculating data completion percentage', [
+                'school_id' => $this->id,
+                'error' => $e->getMessage()
+            ]);
+            return 0;
+        }
     }
 
     // Məktəbə admin təyin etmək üçün

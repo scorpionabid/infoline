@@ -8,7 +8,7 @@ class StoreSectorRequest extends FormRequest
 {
     public function authorize()
     {
-        return auth()->user()->hasRole('superadmin');
+        return auth()->check(); // İstifadəçinin autentifikasiya olunduğunu yoxlayırıq
     }
 
     public function rules()

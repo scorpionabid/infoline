@@ -33,6 +33,28 @@ class Region extends Model
         return RegionFactory::new();
     }
 
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($region) {
+            if (empty($region->code)) {
+                // Regionun adından kod generasiya et
+                $code = strtoupper(preg_replace('/[^a-zA-Z0-9]/', '', $region->name));
+                
+                // Əgər bu kod artıq varsa, sonuna rəqəm əlavə et
+                $count = 1;
+                $newCode = $code;
+                while (static::where('code', $newCode)->exists()) {
+                    $newCode = $code . $count;
+                    $count++;
+                }
+                
+                $region->code = $newCode;
+            }
+        });
+    }
+
     // Region administratoru ilə əlaqə
     public function admin(): BelongsTo
     {
