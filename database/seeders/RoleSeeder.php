@@ -4,7 +4,8 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Domain\Entities\Role;
-use Illuminate\Support\Str;
+use Spatie\Permission\Models\Permission;
+use Illuminate\Support\Facades\DB;
 
 class RoleSeeder extends Seeder
 {
@@ -13,25 +14,68 @@ class RoleSeeder extends Seeder
      */
     public function run(): void
     {
-        Role::create([
-            'name' => 'superadmin',
-            'slug' => 'superadmin',
-            'description' => 'Super Administrator',
+        // Clear existing roles and permissions
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        DB::table('role_has_permissions')->truncate();
+        DB::table('model_has_roles')->truncate();
+        DB::table('model_has_permissions')->truncate();
+        DB::table('roles')->truncate();
+        DB::table('permissions')->truncate();
+        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+
+        // Create roles
+        $superAdmin = Role::create([
+            'name' => 'super',
+            'guard_name' => 'web',
+            'description' => 'Tam səlahiyyətli admin',
+            'is_system' => true
+        ]);
+        
+        $sectorAdmin = Role::create([
+            'name' => 'sector',
+            'guard_name' => 'web',
+            'description' => 'Sektor admin',
+            'is_system' => true
+        ]);
+        
+        $schoolAdmin = Role::create([
+            'name' => 'school',
+            'guard_name' => 'web',
+            'description' => 'Məktəb admin',
             'is_system' => true
         ]);
 
-        Role::create([
-            'name' => 'sector-admin',
-            'slug' => 'sector-admin',
-            'description' => 'Sector Administrator',
-            'is_system' => true
+        // Create permissions
+        $manageSchools = Permission::create(['name' => 'manage-schools', 'guard_name' => 'web']);
+        $assignAdmin = Permission::create(['name' => 'assign-admin', 'guard_name' => 'web']);
+        $manageSchoolData = Permission::create(['name' => 'manage-school-data', 'guard_name' => 'web']);
+        $viewSchoolData = Permission::create(['name' => 'view-school-data', 'guard_name' => 'web']);
+        $manageRegions = Permission::create(['name' => 'manage-regions', 'guard_name' => 'web']);
+        $manageSectors = Permission::create(['name' => 'manage-sectors', 'guard_name' => 'web']);
+        $manageUsers = Permission::create(['name' => 'manage-users', 'guard_name' => 'web']);
+        $viewReports = Permission::create(['name' => 'view-reports', 'guard_name' => 'web']);
+
+        // Assign permissions to roles
+        $superAdmin->givePermissionTo([
+            $manageSchools,
+            $assignAdmin,
+            $manageSchoolData,
+            $viewSchoolData,
+            $manageRegions,
+            $manageSectors,
+            $manageUsers,
+            $viewReports
         ]);
 
-        Role::create([
-            'name' => 'school-admin',
-            'slug' => 'school-admin',
-            'description' => 'School Administrator',
-            'is_system' => true
+        $sectorAdmin->givePermissionTo([
+            $manageSchools,
+            $assignAdmin,
+            $viewReports
+        ]);
+
+        $schoolAdmin->givePermissionTo([
+            $manageSchoolData,
+            $viewSchoolData
         ]);
     }
 }

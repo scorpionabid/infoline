@@ -8,7 +8,7 @@ class StoreRegionRequest extends FormRequest
 {
     public function authorize()
     {
-        return auth()->user()->user_type === \App\Domain\Enums\UserType::SUPER_ADMIN->value;
+        return auth()->user()->hasRole('super');
     }
 
     public function rules()

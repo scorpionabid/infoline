@@ -15,13 +15,15 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Cache;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
     use SoftDeletes, 
         HasApiTokens, 
         HasFactory, 
-        Notifiable;
+        Notifiable,
+        \Spatie\Permission\Traits\HasRoles;
 
     /**
      * Create a new factory instance for the model.
@@ -42,7 +44,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'first_name',
         'last_name',
         'email',
-        'username',
         'password',
         'utis_code',
         'user_type',
@@ -61,14 +62,15 @@ class User extends Authenticatable implements MustVerifyEmail
      * @var array<string, string>
      */
     protected $casts = [
-        'user_type' => UserType::class,
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'last_login_at' => 'datetime',
         'is_active' => 'boolean',
         'region_id' => 'integer',
         'sector_id' => 'integer',
-        'school_id' => 'integer'
+        'school_id' => 'integer',
+        'user_type' => UserType::class,
+        'utis_code' => 'string'
     ];
 
     /**
@@ -86,17 +88,10 @@ class User extends Authenticatable implements MustVerifyEmail
      *
      * @var array
      */
-    protected $with = ['roles', 'permissions'];
+    protected $with = ['roles'];
 
     /**
-     * The accessors to append to the model's array form.
-     *
-     * @var array
-     */
-    protected $appends = ['full_name'];
-
-    /**
-     * Relationship: Region
+     * Get the region that owns the user.
      *
      * @return BelongsTo
      */
@@ -105,8 +100,10 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->belongsTo(Region::class);
     }
 
+
+
     /**
-     * Relationship: Sector
+     * Get the sector that owns the user.
      *
      * @return BelongsTo
      */
@@ -116,7 +113,7 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Relationship: School
+     * Get the school that owns the user.
      *
      * @return BelongsTo
      */
@@ -125,66 +122,7 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->belongsTo(School::class);
     }
 
-    /**
-     * Get the roles that belong to the user.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany
-     */
-    public function roles(): BelongsToMany
-    {
-        return $this->belongsToMany(Role::class, 'user_roles');
-    }
 
-    /**
-     * Check if user has the given role.
-     *
-     * @param string $role
-     * @return bool
-     */
-    public function hasRole($role): bool
-    {
-        return $this->roles->contains('slug', $role);
-    }
-
-    /**
-     * Get all permissions via roles.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasManyThrough
-     */
-    public function permissions()
-    {
-        return $this->hasManyThrough(
-            Permission::class,
-            Role::class,
-            'id', // Role table foreign key
-            'id', // Permission table foreign key
-            'id', // User table local key
-            'id'  // Role table local key
-        )
-        ->join('role_permissions', function($join) {
-            $join->on('permissions.id', '=', 'role_permissions.permission_id')
-                 ->on('roles.id', '=', 'role_permissions.role_id');
-        })
-        ->join('user_roles', function($join) {
-            $join->on('roles.id', '=', 'user_roles.role_id')
-                 ->where('user_roles.user_id', '=', $this->id);
-        })
-        ->select('permissions.*')
-        ->distinct();
-    }
-
-    /**
-     * Check if user has a specific permission.
-     *
-     * @param string $permission
-     * @return bool
-     */
-    public function hasPermission(string $permission): bool
-    {
-        return Cache::remember('user_permission_'.$this->id.'_'.$permission, 60, function () use ($permission) {
-            return $this->permissions()->where('permissions.slug', $permission)->exists();
-        });
-    }
 
     /**
      * Relationship: Notifications

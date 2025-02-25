@@ -48,7 +48,7 @@ class UserDTO extends BaseDTO
             'username' => 'required|unique:users,username|alpha_dash|max:50',
             'password' => 'required|min:8',
             'utis_code' => 'required|string|size:7',
-            'user_type' => 'required|in:superadmin,schooladmin,sectoradmin',
+            'user_type' => 'required|in:super,sector,school',
             'sector_id' => 'required|exists:sectors,id'
         ];
 

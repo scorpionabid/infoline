@@ -289,7 +289,7 @@ class SectorService
    private function assignAdminRoles(User $admin, Sector $sector): void 
    {
        // Sektor admin rolunu təyin et
-       $sectorAdminRole = Role::where('slug', 'sector-admin')->first();
+       $sectorAdminRole = Role::where('name', 'sector-admin')->first();
        $admin->roles()->sync([$sectorAdminRole->id]);
 
        // Sektor adminləri üçün icazələri əlavə et

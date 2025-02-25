@@ -2,19 +2,11 @@
 
 namespace App\Domain\Enums;
 
-enum UserType: string implements \JsonSerializable
+enum UserType: string
 {
-    case SUPER_ADMIN = 'superadmin';
-    case SECTOR_ADMIN = 'sector-admin';
-    case SCHOOL_ADMIN = 'school-admin';
-
-    public static function values(): array
-    {
-        return array_column(self::cases(), 'value');
-    }
-
-    public function jsonSerialize(): string
-    {
-        return $this->value;
-    }
+    case SUPER_ADMIN = 'super';
+    case SECTOR_ADMIN = 'sector';
+    case SCHOOL_ADMIN = 'school';
+    case TEACHER = 'teacher';
+    case STUDENT = 'student';
 }

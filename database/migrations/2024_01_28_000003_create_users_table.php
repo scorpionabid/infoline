@@ -13,11 +13,10 @@ return new class extends Migration
                 $table->id();
                 $table->string('first_name');
                 $table->string('last_name');
-                $table->string('utis_code')->unique();
+                $table->string('utis_code')->unique()->nullable(false)->default('0000000');
                 $table->string('email')->unique();
-                $table->string('username')->unique();
                 $table->string('password');
-                $table->enum('user_type', ['superadmin', 'sector-admin', 'school-admin']);
+                $table->string('user_type');
                 $table->foreignId('region_id')->nullable()->constrained()->onDelete('cascade');
                 $table->foreignId('sector_id')->nullable()->constrained()->onDelete('cascade');
                 $table->foreignId('school_id')->nullable()->constrained()->onDelete('cascade');
@@ -38,4 +37,5 @@ return new class extends Migration
     {
         Schema::dropIfExists('users');
     }
+    
 };

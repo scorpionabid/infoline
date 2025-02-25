@@ -4,10 +4,19 @@ namespace App\Http\Controllers\Web\Dashboard;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Domain\Entities\Category;
-use App\Domain\Entities\Column;
-use App\Domain\Entities\DataValue;
+use App\Domain\Entities\{
+    Category,
+    Column,
+    DataValue,
+    Region,
+    Sector,
+    School,
+    User,
+    SchoolData
+};
 use Illuminate\Support\Facades\Auth;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\SchoolDataExport;
 
 class DashboardController extends Controller
 {
@@ -18,25 +27,63 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
         
-        if ($user->isSuperAdmin()) {
+        if ($user->hasRole('super')) {
             return redirect()->route('dashboard.super-admin');
-        } elseif ($user->isSectorAdmin()) {
+        } elseif ($user->hasRole('sector')) {
             return redirect()->route('dashboard.sector-admin');
         } else {
             return redirect()->route('dashboard.school-admin');
         }
+    }
+
+    /**
+     * SuperAdmin dashboard
+     */
+    public function superAdmin()
+    {
+        $data = [
+            'regionCount' => Region::count(),
+            'sectorCount' => Sector::count(),
+            'schoolCount' => School::count(),
+            'userCount' => User::count()
+        ];
+
+        return view('pages.dashboard.super-admin', $data);
+    }
+
+    /**
+     * Sektor admin dashboard-u
+     */
+    public function sectorAdmin()
+    {
+        $user = Auth::user();
+    
+        if (!$user->hasRole('sector')) {
+            return redirect()->route('dashboard');
+        }
+
+        // Get user's sector and region
+        $sector = $user->sector()->with(['schools.admins', 'region'])->first();
+        $region = $user->region;
+
+        if (!$sector || !$region) {
+            return redirect()->route('dashboard')
+                ->with('error', 'Sektor və ya region təyin edilməyib.');
+        }
+
+        // Statistika məlumatları
         $data = [
             'regionCount' => Region::count(),
             'sectorCount' => Sector::count(), 
             'schoolCount' => School::count(),
             'userCount' => User::count(),
-        
-        // Filter options
             'sectors' => Sector::all(),
-            'categories' => Category::all()
+            'categories' => Category::all(),
+            'sector' => $sector,
+            'region' => $region
         ];
 
-    // Handle filters
+        // Məlumatları filtrlə
         $query = SchoolData::with(['school.sector', 'category']);
 
         if ($sectorId = request('sector_id')) {
@@ -53,7 +100,7 @@ class DashboardController extends Controller
             $query->where('status', $status);
         }
 
-    // Handle export
+        // Export əməliyyatı
         if (request('export')) {
             return Excel::download(
                 new SchoolDataExport($query->get()),
@@ -63,43 +110,7 @@ class DashboardController extends Controller
 
         $data['schoolData'] = $query->paginate(15);
 
-        return view('pages.dashboard.super-admin', $data);
-    }
-    
-
-    /**
-     * SuperAdmin dashboard
-     */
-    public function superAdmin()
-    {
-        $data = [
-            'regionCount' => \App\Domain\Entities\Region::count(),
-            'sectorCount' => \App\Domain\Entities\Sector::count(),
-            'schoolCount' => \App\Domain\Entities\School::count(),
-            'userCount' => \App\Domain\Entities\User::count(),
-        ];
-
-        return view('pages.dashboard.super-admin', $data);
-    }
-
-    /**
-     * SectorAdmin dashboard
-     */
-    public function sectorAdmin()
-    {
-        $user = Auth::user();
-    
-        if (!$user->isSectorAdmin()) {
-            return redirect()->route('dashboard');
-        }
-
-    // Sector və əlaqəli məlumatları eager loading ilə gətiririk
-        $sector = $user->sector()->with([
-            'schools.admins',
-            'region'
-        ])->first();
-
-        return view('pages.dashboard.sector-admin', compact('sector'));
+        return view('pages.dashboard.sector-admin', $data);
     }
 
     /**

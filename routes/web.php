@@ -52,23 +52,23 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('index');
 
         // Super Admin Dashboard routes
-        Route::middleware(['role:super-admin'])->group(function () {
+        Route::middleware(['role:super'])->group(function () {
             Route::get('/super-admin', [SuperAdminDashboardController::class, 'index'])->name('super-admin');
         });
 
         // Sector Admin Dashboard routes
-        Route::middleware(['role:sector-admin'])->group(function () {
+        Route::middleware(['role:sector'])->group(function () {
             Route::get('/sector-admin', [DashboardController::class, 'sectorAdmin'])->name('sector-admin');
         });
 
         // School Admin Dashboard routes
-        Route::middleware(['role:school-admin'])->group(function () {
+        Route::middleware(['role:school'])->group(function () {
             Route::get('/school-admin', [DashboardController::class, 'schoolAdmin'])->name('school-admin');
         });
     });
 
     // Settings routes
-    Route::prefix('settings')->name('settings.')->middleware(['auth'])->group(function () {
+    Route::prefix('settings')->name('settings.')->middleware(['role:super'])->group(function () {
         Route::get('/', [SettingsController::class, 'index'])->name('index');
         
         // System settings routes
@@ -145,28 +145,61 @@ Route::middleware('auth')->group(function () {
                 Route::get('/{sector}/edit', [SectorManagementController::class, 'edit'])->name('edit');
                 Route::put('/{sector}', [SectorManagementController::class, 'update'])->name('update');
                 Route::delete('/{sector}', [SectorManagementController::class, 'destroy'])->name('destroy');
-                Route::post('/{sector}/assign-admin', [SectorManagementController::class, 'assignAdmin'])->name('assign-admin');
+                
+                // Admin management routes
+                Route::prefix('{sector}/admin')->name('admin.')->group(function () {
+                    Route::get('/create', [SectorManagementController::class, 'createAdminForm'])->name('create');
+                    Route::post('/', [SectorManagementController::class, 'storeAdmin'])->name('store');
+                    Route::delete('/', [SectorManagementController::class, 'removeAdmin'])->name('remove');
+                });
             });
 
             // Schools
             Route::prefix('schools')->name('schools.')->group(function () {
-                Route::get('/', [SchoolManagementController::class, 'index'])->name('index');
-                Route::post('/', [SchoolManagementController::class, 'store'])->name('store');
-                Route::get('/{school}', [SchoolManagementController::class, 'show'])->name('show');
-                Route::get('/{school}/edit', [SchoolManagementController::class, 'edit'])->name('edit');
-                Route::put('/{school}', [SchoolManagementController::class, 'update'])->name('update');
-                Route::delete('/{school}', [SchoolManagementController::class, 'destroy'])->name('destroy');
-                Route::get('/admins/available', [SchoolManagementController::class, 'getAvailableAdmins'])->name('admins.available');
-                Route::post('/admins', [SchoolManagementController::class, 'createAdmin'])->name('admins.create');
-                Route::post('/{school}/assign-admin', [SchoolManagementController::class, 'assignAdmin'])->name('assign-admin');
-                Route::delete('/{school}/remove-admin', [SchoolManagementController::class, 'removeAdmin'])->name('remove-admin');
-                
+                Route::get('/', [SchoolController::class, 'index'])->name('index');
+                Route::get('/create', [SchoolController::class, 'create'])->name('create');
+                Route::post('/', [SchoolController::class, 'store'])->name('store');
+                Route::get('/{school}', [SchoolController::class, 'show'])->name('show');
+                Route::get('/{school}/edit', [SchoolController::class, 'edit'])->name('edit');
+                Route::put('/{school}', [SchoolController::class, 'update'])->name('update');
+                Route::delete('/{school}', [SchoolController::class, 'destroy'])->name('destroy');
+                // Admin management
+                Route::prefix('{school}/admin')->name('admin.')->group(function () {
+                    Route::get('/create', [SchoolController::class, 'createAdmin'])->name('create');
+                    Route::post('/', [SchoolController::class, 'storeAdmin'])->name('store');
+                    Route::post('/assign', [SchoolController::class, 'assignAdmin'])->name('assign');
+                    Route::delete('/remove', [SchoolController::class, 'removeAdmin'])->name('remove');
+                });
+
+            
                 // School data management
                 Route::get('/{school}/data', [SchoolManagementController::class, 'showData'])->name('show.data');
                 Route::post('/{school}/data', [SchoolManagementController::class, 'updateData'])->name('update.data');
             });
 
             // Users
+            // Schools admin management
+            Route::prefix('schools')->name('schools.')->group(function () {
+                Route::get('/', [SchoolController::class, 'index'])->name('index');
+                Route::get('/create', [SchoolController::class, 'create'])->name('create');
+                Route::post('/', [SchoolController::class, 'store'])->name('store');
+                Route::get('/{school}/edit', [SchoolController::class, 'edit'])->name('edit');
+
+                // Admin management routes
+                Route::get('/admins/{admin}', [SchoolManagementController::class, 'getAdmin'])->name('admins.show');
+                Route::put('/{school}/admins/{admin}', [SchoolManagementController::class, 'updateAdmin'])->name('admins.update');
+                Route::post('/{school}/admins', [SchoolManagementController::class, 'createAdmin'])->name('admins.store');
+                Route::put('/{school}', [SchoolController::class, 'update'])->name('update');
+                Route::delete('/{school}', [SchoolController::class, 'destroy'])->name('destroy');
+                
+                // Admin management
+                Route::get('/{school}/admin/create', [SchoolController::class, 'createAdmin'])->name('admin.create');
+                Route::post('/{school}/admin', [SchoolController::class, 'storeAdmin'])->name('admin.store');
+                Route::post('/{school}/admin/assign', [SchoolController::class, 'assignAdmin'])->name('admin.assign');
+                Route::delete('/{school}/admin', [SchoolController::class, 'removeAdmin'])->name('admin.remove');
+            });
+
+            // Users management
             Route::prefix('users')->name('users.')->group(function () {
                 Route::get('/', [UserManagementController::class, 'index'])->name('index');
                 Route::get('/create', [UserManagementController::class, 'create'])->name('create');
@@ -224,3 +257,8 @@ if (app()->environment('local')) {
 }
 
 Route::fallback(fn() => abort(404, 'Səhifə tapılmadı'));
+
+Route::post('/log/client-error', [
+    'uses' => 'LoggingController@logClientError',
+    'middleware' => ['web']
+]);

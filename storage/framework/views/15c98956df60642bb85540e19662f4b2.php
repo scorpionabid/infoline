@@ -15,7 +15,7 @@
            </a>
            
            <!-- Settings Dropdown -->
-           <?php if(auth()->user()->isSuperAdmin()): ?>
+           <?php if(auth()->user()->hasRole('super')): ?>
            <div class="nav-item dropdown">
                <a class="nav-link dropdown-toggle <?php echo e(request()->routeIs('settings.*') ? 'active' : ''); ?>" 
                   href="#" role="button" data-bs-toggle="dropdown">
@@ -42,17 +42,17 @@
        <!-- Center - User Context -->
        <div class="navbar-text text-center mx-auto">
            <?php switch(true):
-               case (auth()->user()->isSuperAdmin()): ?>
+               case (auth()->user()->hasRole('super')): ?>
                    <i class="fas fa-globe"></i> 
                    <?php echo e(auth()->user()->region->name ?? 'Bütün regionlar'); ?>
 
                    <?php break; ?>
-               <?php case (auth()->user()->isSectorAdmin()): ?>  
+               <?php case (auth()->user()->hasRole('sector')): ?>  
                    <i class="fas fa-building"></i>
                    <?php echo e(auth()->user()->sector->name ?? 'Sektor'); ?>
 
                    <?php break; ?>
-               <?php case (auth()->user()->isSchoolAdmin()): ?>
+               <?php case (auth()->user()->hasRole('school')): ?>
                    <i class="fas fa-school"></i>
                    <?php echo e(auth()->user()->school->name ?? 'Məktəb'); ?>
 

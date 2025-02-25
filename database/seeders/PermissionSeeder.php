@@ -3,8 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Domain\Entities\Permission;
-use Illuminate\Support\Str;
+use Spatie\Permission\Models\Permission;
 
 class PermissionSeeder extends Seeder
 {
@@ -14,52 +13,47 @@ class PermissionSeeder extends Seeder
     public function run(): void
     {
         // User Management
-        $this->createPermission('view-users', 'View users', 'user');
-        $this->createPermission('create-users', 'Create users', 'user');
-        $this->createPermission('edit-users', 'Edit users', 'user');
-        $this->createPermission('delete-users', 'Delete users', 'user');
+        $this->createPermission('view-users');
+        $this->createPermission('create-users');
+        $this->createPermission('edit-users');
+        $this->createPermission('delete-users');
 
         // Role Management
-        $this->createPermission('view-roles', 'View roles', 'role');
-        $this->createPermission('create-roles', 'Create roles', 'role');
-        $this->createPermission('edit-roles', 'Edit roles', 'role');
-        $this->createPermission('delete-roles', 'Delete roles', 'role');
+        $this->createPermission('view-roles');
+        $this->createPermission('create-roles');
+        $this->createPermission('edit-roles');
+        $this->createPermission('delete-roles');
 
         // Region Management
-        $this->createPermission('view-regions', 'View regions', 'region');
-        $this->createPermission('create-regions', 'Create regions', 'region');
-        $this->createPermission('edit-regions', 'Edit regions', 'region');
-        $this->createPermission('delete-regions', 'Delete regions', 'region');
+        $this->createPermission('view-regions');
+        $this->createPermission('create-regions');
+        $this->createPermission('edit-regions');
+        $this->createPermission('delete-regions');
 
         // Sector Management
-        $this->createPermission('view-sectors', 'View sectors', 'sector');
-        $this->createPermission('create-sectors', 'Create sectors', 'sector');
-        $this->createPermission('edit-sectors', 'Edit sectors', 'sector');
-        $this->createPermission('delete-sectors', 'Delete sectors', 'sector');
+        $this->createPermission('view-sectors');
+        $this->createPermission('create-sectors');
+        $this->createPermission('edit-sectors');
+        $this->createPermission('delete-sectors');
 
         // School Management
-        $this->createPermission('view-schools', 'View schools', 'school');
-        $this->createPermission('create-schools', 'Create schools', 'school');
-        $this->createPermission('edit-schools', 'Edit schools', 'school');
-        $this->createPermission('delete-schools', 'Delete schools', 'school');
+        $this->createPermission('view-schools');
+        $this->createPermission('create-schools');
+        $this->createPermission('edit-schools');
+        $this->createPermission('delete-schools');
 
         // Category Management
-        $this->createPermission('view-categories', 'View categories', 'category');
-        $this->createPermission('create-categories', 'Create categories', 'category');
-        $this->createPermission('edit-categories', 'Edit categories', 'category');
-        $this->createPermission('delete-categories', 'Delete categories', 'category');
+        $this->createPermission('view-categories');
+        $this->createPermission('create-categories');
+        $this->createPermission('edit-categories');
+        $this->createPermission('delete-categories');
     }
 
     /**
      * Create a new permission
      */
-    private function createPermission(string $name, string $description, string $group): void
+    private function createPermission(string $name): void
     {
-        Permission::create([
-            'name' => $name,
-            'slug' => Str::slug($name),
-            'description' => $description,
-            'group' => $group
-        ]);
+        Permission::create(['name' => $name, 'guard_name' => 'web']);
     }
 }

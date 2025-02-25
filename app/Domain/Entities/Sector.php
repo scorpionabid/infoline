@@ -30,7 +30,7 @@ class Sector extends Model
         'status' => 'boolean'
     ];
 
-    protected $with = ['region', 'admin'];
+    protected $with = ['region', 'admin', 'user'];
 
     protected static function newFactory()
     {
@@ -57,6 +57,12 @@ class Sector extends Model
 
     // Sektora aid olan admin ilə əlaqə
     public function admin(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'admin_id');
+    }
+
+    // Sektor istifadəçisi ilə əlaqə (many-to-one)
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'admin_id');
     }

@@ -11,6 +11,11 @@ use Illuminate\Support\Facades\Auth;
 
 class DeadlineController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware(['role:super']);
+    }
+
     /**
      * Deadline siyahısını göstərir
      */

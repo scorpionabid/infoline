@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Pagination\Paginator;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -21,5 +22,8 @@ class AppServiceProvider extends ServiceProvider
     {
         // Error mesajlarını override et
         $this->loadTranslationsFrom(resource_path('lang/az'), 'messages');
+        
+        // Bootstrap pagination-i aktiv et
+        Paginator::useBootstrap();
     }
 }

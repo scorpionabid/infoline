@@ -23,7 +23,7 @@ class RegionManagementController extends Controller
 
     public function __construct(RegionService $regionService)
     {
-        $this->middleware(['auth', 'role:superadmin']);
+        $this->middleware(['role:super']);
         $this->regionService = $regionService;
     }
 

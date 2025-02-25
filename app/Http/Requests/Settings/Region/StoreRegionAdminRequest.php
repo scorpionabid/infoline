@@ -8,7 +8,7 @@ class StoreRegionAdminRequest extends FormRequest
 {
     public function authorize()
     {
-        return auth()->user()->hasRole('superadmin');
+        return auth()->user()->hasRole('super');
     }
 
     public function rules()

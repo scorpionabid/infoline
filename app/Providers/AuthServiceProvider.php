@@ -15,7 +15,7 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        //
+        'App\Domain\Entities\User' => 'App\Policies\UserPolicy',
     ];
 
     /**
@@ -25,57 +25,57 @@ class AuthServiceProvider extends ServiceProvider
     {
         // Super Admin has all permissions
         Gate::before(function (User $user, string $ability) {
-            if ($user->user_type === UserType::SUPER_ADMIN) {
+            if ($user->hasRole('super')) {
                 return true;
             }
         });
 
         // Manage schools permission
         Gate::define('manage-schools', function (User $user) {
-            return in_array($user->type, [
-                UserType::SUPER_ADMIN,
-                UserType::SECTOR_ADMIN
+            return in_array($user->user_type, [
+                UserType::SUPER_ADMIN->value,
+                UserType::SECTOR_ADMIN->value
             ]);
         });
 
         // Assign admin permission
         Gate::define('assign-admin', function (User $user) {
-            return in_array($user->type, [
-                UserType::SUPER_ADMIN,
-                UserType::SECTOR_ADMIN
+            return in_array($user->user_type, [
+                UserType::SUPER_ADMIN->value,
+                UserType::SECTOR_ADMIN->value
             ]);
         });
 
         // Manage school data permission
         Gate::define('manage-school-data', function (User $user, School $school) {
-            return $user->type === UserType::SCHOOL_ADMIN && $school->admin_id === $user->id;
+            return $user->user_type === UserType::SCHOOL_ADMIN->value && $school->admin_id === $user->id;
         });
 
         // View school data permission
         Gate::define('view-school-data', function (User $user, School $school) {
-            return $user->type === UserType::SCHOOL_ADMIN && $school->admin_id === $user->id;
+            return $user->user_type === UserType::SCHOOL_ADMIN->value && $school->admin_id === $user->id;
         });
 
         // Manage regions permission
         Gate::define('manage-regions', function (User $user) {
-            return $user->type === UserType::SUPER_ADMIN;
+            return $user->user_type === UserType::SUPER_ADMIN->value;
         });
 
         // Manage sectors permission
         Gate::define('manage-sectors', function (User $user) {
-            return $user->type === UserType::SUPER_ADMIN;
+            return $user->user_type === UserType::SUPER_ADMIN->value;
         });
 
         // Manage users permission
         Gate::define('manage-users', function (User $user) {
-            return $user->type === UserType::SUPER_ADMIN;
+            return $user->user_type === UserType::SUPER_ADMIN->value;
         });
 
         // View reports permission
         Gate::define('view-reports', function (User $user) {
-            return in_array($user->type, [
-                UserType::SUPER_ADMIN,
-                UserType::SECTOR_ADMIN
+            return in_array($user->user_type, [
+                UserType::SUPER_ADMIN->value,
+                UserType::SECTOR_ADMIN->value
             ]);
         });
     }

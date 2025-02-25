@@ -33,5 +33,19 @@ return [
             'level' => 'debug',
             'permission' => 0664,
         ],
+        'action_log' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/actions.log'),
+            'level' => 'debug',
+            'days' => 14,
+            'permission' => 0664,
+        ],
+        'client_error_log' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/client-errors.log'),
+            'level' => 'error', 
+            'days' => 30,
+            'permission' => 0664,
+        ],
     ],
 ];

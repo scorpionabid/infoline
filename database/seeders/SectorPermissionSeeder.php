@@ -3,8 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use App\Domain\Entities\Role;
-use App\Domain\Entities\Permission;
+use Spatie\Permission\Models\{Role, Permission};
 use App\Domain\Entities\User;
 use App\Domain\Enums\UserType;
 
@@ -16,9 +15,9 @@ class SectorPermissionSeeder extends Seeder
     public function run(): void
     {
         // Get roles
-        $superadminRole = Role::where('slug', 'superadmin')->first();
-        $sectorAdminRole = Role::where('slug', 'sector-admin')->first();
-        $schoolAdminRole = Role::where('slug', 'school-admin')->first();
+        $superadminRole = Role::where('name', 'super')->first();
+        $sectorAdminRole = Role::where('name', 'sector')->first();
+        $schoolAdminRole = Role::where('name', 'school')->first();
 
         // Get all permissions
         $permissions = Permission::all();
@@ -42,6 +41,6 @@ class SectorPermissionSeeder extends Seeder
 
         // Assign superadmin role to superadmin user
         $superadminUser = User::where('user_type', UserType::SUPER_ADMIN)->first();
-        $superadminUser->roles()->sync([$superadminRole->id]);
+        $superadminUser->assignRole('super');
     }
 }

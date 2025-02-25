@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Settings\Personal;
 use App\Http\Controllers\Controller;
 use App\Domain\Entities\{School, Sector, Region};
 use App\Http\Requests\Settings\School\{StoreSchoolRequest, UpdateSchoolRequest};
+use App\Http\Requests\Settings\Personal\School\StoreSchoolAdminRequest;
 use App\Domain\Entities\User;
 use App\Events\School\{AdminAssigned, SchoolUpdated};
+use App\Domain\Enums\UserType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Log};
 use Yajra\DataTables\Facades\DataTables;
@@ -15,6 +17,11 @@ use Illuminate\Support\Facades\Cache;
 
 class SchoolController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware(['role:super']);
+    }
+
     /**
      * Display a listing of schools.
      *
@@ -56,10 +63,25 @@ class SchoolController extends Controller
         }
 
         try {
+            $regions = Region::orderBy('name')->get();
             $sectors = Sector::with('region')->orderBy('name')->get();
             $schoolTypes = config('enums.school_types');
 
-            return view('pages.settings.personal.schools.index', compact('sectors', 'schoolTypes'));
+            $query = School::with(['sector.region', 'admin', 'admins']);
+            
+            if ($request->filled('region_id')) {
+                $query->whereHas('sector', function($q) use ($request) {
+                    $q->where('region_id', $request->region_id);
+                });
+            }
+
+            if ($request->filled('sector_id')) {
+                $query->where('sector_id', $request->sector_id);
+            }
+
+            $schools = $query->orderBy('name')->paginate(10)->withQueryString();
+
+            return view('pages.settings.personal.schools.index', compact('regions', 'sectors', 'schoolTypes', 'schools'));
         } catch (\Exception $e) {
             Log::error('Error loading schools page', [
                 'message' => $e->getMessage(),
@@ -76,6 +98,238 @@ class SchoolController extends Controller
      * @param StoreSchoolRequest $request
      * @return \Illuminate\Http\JsonResponse
      */
+    /**
+     * Show the form for creating a new school.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function create()
+    {
+        try {
+            $sectors = Sector::with('region')->orderBy('name')->get();
+            $schoolTypes = config('enums.school_types');
+
+            return view('pages.settings.personal.schools.create', compact('sectors', 'schoolTypes'));
+        } catch (\Exception $e) {
+            Log::error('Error loading school create page', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return back()->with('error', 'Səhifəni yükləyərkən xəta baş verdi.');
+        }
+    }
+
+    /**
+     * Store a newly created school.
+     *
+     * @param StoreSchoolRequest $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+
+
+
+    /**
+     * Show form for creating a new admin
+     *
+     * @param School $school
+     * @return \Illuminate\View\View
+     */
+    public function createAdmin(School $school)
+    {
+        $this->authorize('create', [User::class, $school]);
+        return view('pages.settings.personal.schools.create-admin-form', compact('school'));
+    }
+
+    /**
+     * Store a newly created admin
+     *
+     * @param StoreSchoolAdminRequest $request
+     * @param School $school
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function storeAdmin(StoreSchoolAdminRequest $request, School $school)
+    {
+        try {
+            DB::beginTransaction();
+
+            // Check if school already has an admin
+            if ($school->admin) {
+                throw new \Exception('Bu məktəbin artıq admini var.');
+            }
+
+            // Generate UTIS code for school admin
+            $utisCode = 'SA' . time() . rand(1000, 9999);
+            $username = strtolower(str_replace(' ', '', $request->first_name)) . '.' . 
+                       strtolower(str_replace(' ', '', $request->last_name));
+
+            // Create new user
+            $user = User::create([
+                'first_name' => $request->first_name,
+                'last_name' => $request->last_name,
+                'email' => $request->email,
+                'phone' => $request->phone,
+                'password' => bcrypt($request->password),
+                'user_type' => 'school',
+                'school_id' => $school->id
+            ]);
+
+            // Assign school admin role from existing roles table
+            $schoolAdminRole = Role::where('name', 'school')->firstOrFail();
+            $user->roles()->attach($schoolAdminRole->id);
+
+            // Assign user as school admin
+            $user->school_id = $school->id;
+            $user->save();
+
+            // Fire admin assigned event
+            event(new AdminAssigned($school, $user));
+
+            DB::commit();
+
+            Cache::tags(['schools'])->flush();
+
+            return redirect()
+                ->route('settings.personal.schools.index')
+                ->with('success', 'Məktəb admini uğurla yaradıldı');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error creating school admin', [
+                'school_id' => $school->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return back()
+                ->withInput()
+                ->withErrors(['error' => 'Admin yaradılarkən xəta baş verdi: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Assign an existing user as admin to a school.
+     *
+     * @param Request $request
+     * @param School $school
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function assignAdmin(Request $request, School $school)
+    {
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            '_token' => 'required'
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $user = User::findOrFail($request->user_id);
+
+            // Check if school already has an admin
+            if ($school->admin) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu məktəbin artıq admini var'
+                ], 422);
+            }
+
+            // Check if user is already an admin of another school
+            if ($user->schools()->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu istifadəçi artıq başqa məktəbin adminidir'
+                ], 422);
+            }
+
+            // Assign school admin role if not already assigned
+            if (!$user->hasRole('school_admin')) {
+                $role = Role::where('name', 'school_admin')->firstOrFail();
+                $user->assignRole($role);
+            }
+
+            // Update user type
+            $user->update(['type' => UserType::SCHOOL_ADMIN]);
+
+            // Assign user as school admin
+            $user->school_id = $school->id; 
+            $user->save();
+
+            // Fire admin assigned event
+            event(new AdminAssigned($school, $user));
+
+            DB::commit();
+
+            Cache::tags(['schools'])->flush();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Admin uğurla təyin edildi'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error assigning school admin', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin təyin edərkən xəta baş verdi'
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove admin from a school.
+     *
+     * @param Request $request
+     * @param School $school
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function removeAdmin(Request $request, School $school)
+    {
+        try {
+            DB::beginTransaction();
+
+            // Get current admin
+            $admin = $school->admin;
+            if (!$admin) {
+                throw new \Exception('Məktəbin admini yoxdur');
+            }
+
+            // Remove admin from school
+            $school->admins()->detach($admin->id);
+
+            // Remove school_admin role if user is not admin of any other school
+            if ($admin->schools()->count() === 0) {
+                $admin->removeRole('school_admin');
+            }
+
+            DB::commit();
+
+            Cache::tags(['schools'])->flush();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Admin uğurla silindi'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error removing school admin', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin silərkən xəta baş verdi'
+            ], 500);
+        }
+    }
+
     public function store(StoreSchoolRequest $request)
     {
         try {
@@ -232,7 +486,7 @@ class SchoolController extends Controller
     public function getAvailableAdmins(Request $request)
     {
         try {
-            $schoolAdminRole = Role::where('name', 'school_admin')->firstOrFail();
+            $schoolAdminRole = Role::where('name', 'school')->firstOrFail();
 
             $query = User::role($schoolAdminRole)
                 ->whereDoesntHave('schools')
@@ -260,69 +514,6 @@ class SchoolController extends Controller
             return response()->json([
                 'error' => true,
                 'message' => 'Adminləri yükləyərkən xəta baş verdi.'
-            ], 500);
-        }
-    }
-
-    /**
-     * Assign admin to school.
-     *
-     * @param Request $request
-     * @param School $school
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function assignAdmin(Request $request, School $school)
-    {
-        $request->validate([
-            'admin_id' => 'required|exists:users,id'
-        ]);
-
-        try {
-            DB::beginTransaction();
-
-            $admin = User::findOrFail($request->admin_id);
-            $schoolAdminRole = Role::where('name', 'school_admin')->firstOrFail();
-
-            // Check if user has school_admin role
-            if (!$admin->hasRole($schoolAdminRole)) {
-                throw new \InvalidArgumentException('Seçilmiş istifadəçi məktəb admini deyil.');
-            }
-
-            // Check if admin is already assigned to another school
-            if ($admin->schools()->exists()) {
-                throw new \InvalidArgumentException('Seçilmiş admin artıq başqa məktəbə təyin edilib.');
-            }
-
-            // Assign admin to school
-            $school->admins()->attach($admin->id);
-
-            // If this is the first admin, set as primary admin
-            if (!$school->admin_id) {
-                $school->admin_id = $admin->id;
-                $school->save();
-            }
-
-            DB::commit();
-
-            event(new AdminAssigned($school, $admin));
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Admin uğurla təyin edildi.'
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            Log::error('Error assigning admin to school', [
-                'school_id' => $school->id,
-                'admin_id' => $request->admin_id,
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return response()->json([
-                'error' => true,
-                'message' => $e instanceof \InvalidArgumentException ? $e->getMessage() : 'Admin təyin edərkən xəta baş verdi.'
             ], 500);
         }
     }
@@ -360,41 +551,4 @@ class SchoolController extends Controller
         }
     }
 
-
-
-
-
-            // Assign admin to school
-            $school->admins()->attach($admin->id);
-
-            // If this is the first admin, set as primary admin
-            if (!$school->admin_id) {
-                $school->admin_id = $admin->id;
-                $school->save();
-            }
-
-            DB::commit();
-
-            event(new AdminAssigned($school, $admin));
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Admin uğurla təyin edildi.'
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            Log::error('Error assigning admin to school', [
-                'school_id' => $school->id,
-                'admin_id' => $request->admin_id,
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            
-            return response()->json([
-                'error' => true,
-                'message' => $e instanceof \InvalidArgumentException ? $e->getMessage() : 'Admin təyin edərkən xəta baş verdi.'
-            ], 500);
-        }
-    }
 }

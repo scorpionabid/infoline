@@ -203,11 +203,11 @@ class WebAuthController extends Controller
      */
     protected function redirectBasedOnRole($user)
     {
-        if ($user->isSuperAdmin()) {
+        if ($user->hasRole('super')) {
             return redirect()->route('dashboard.super-admin');
-        } elseif ($user->isSectorAdmin()) {
+        } elseif ($user->hasRole('sector')) {
             return redirect()->route('dashboard.sector-admin');
-        } elseif ($user->isSchoolAdmin()) {
+        } elseif ($user->hasRole('school')) {
             return redirect()->route('dashboard.school-admin');
         }
         

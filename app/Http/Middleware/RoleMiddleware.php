@@ -4,8 +4,8 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Spatie\Permission\Models\Role;
 use Symfony\Component\HttpFoundation\Response;
-use App\Domain\Enums\UserType;
 
 class RoleMiddleware
 {
@@ -20,14 +20,7 @@ class RoleMiddleware
             return redirect()->route('login');
         }
 
-        $userType = match ($role) {
-            'super-admin' => UserType::SUPER_ADMIN,
-            'sector-admin' => UserType::SECTOR_ADMIN,
-            'school-admin' => UserType::SCHOOL_ADMIN,
-            default => null
-        };
-
-        if (!$userType || $request->user()->user_type !== $userType) {
+        if (!$request->user()->hasRole($role)) {
             abort(403, 'Bu səhifəyə giriş icazəniz yoxdur.');
         }
 

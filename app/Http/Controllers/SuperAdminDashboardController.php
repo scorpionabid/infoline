@@ -9,6 +9,10 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 class SuperAdminDashboardController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware(['auth', 'role:super']);
+    }
     // app/Http/Controllers/SuperAdminDashboardController.php
 
     public function index(Request $request)

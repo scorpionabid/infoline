@@ -20,6 +20,7 @@ use Illuminate\Http\{Request, JsonResponse};
 use Illuminate\Support\Facades\{Log, DB, Cache};
 use Illuminate\View\View;
 use Illuminate\Database\Eloquent\Builder;
+use App\Domain\Entities\Role;
 
 class SchoolManagementController extends Controller
 {
@@ -34,8 +35,7 @@ class SchoolManagementController extends Controller
     ) {
         $this->schoolService = $schoolService;
         $this->adminService = $adminService;
-        $this->middleware('can:manage-schools');
-        $this->middleware('can:assign-admin')->only(['assignAdmin', 'removeAdmin']);
+        $this->middleware(['auth', 'role:superadmin']);
     }
 
     /**
@@ -55,7 +55,9 @@ class SchoolManagementController extends Controller
                 return Sector::with('region')->orderBy('name')->get();
             });
 
-            $query = School::with([
+            $query = School::query();
+            
+            $query->with([
                 'sector.region',
                 'admin',
                 'admins',
@@ -65,7 +67,7 @@ class SchoolManagementController extends Controller
             ]);
 
             $query = $this->applyFilters($query, $request);
-            $schools = $query->orderBy('name')->paginate(self::PAGINATION_LIMIT);
+            $schools = $query->orderBy('name')->paginate(self::PAGINATION_LIMIT)->withQueryString();
 
             return view('pages.settings.personal.schools.index', [
                 'schools' => $schools,
@@ -254,63 +256,108 @@ class SchoolManagementController extends Controller
         try {
             DB::beginTransaction();
 
+            // Default UTİS kodu təyin et
+            $utisCode = $request->utis_code ?? '0000000';
+
+            // Unikallıq yoxlamaları
+            $this->validateUniqueFields($request);
+
             $admin = User::create([
                 'first_name' => $request->first_name,
                 'last_name' => $request->last_name,
                 'email' => $request->email,
                 'username' => $request->username,
                 'password' => Hash::make($request->password),
-                'utis_code' => $request->utis_code,
+                'utis_code' => $utisCode,
                 'phone' => $request->phone,
-                'user_type' => UserType::SCHOOL_ADMIN
+                'user_type' => UserType::SCHOOL_ADMIN,
+                'is_active' => true,
+                'sector_id' => $request->sector_id,
+                'school_id' => $request->school_id
             ]);
+
+            // Əsas admin rolunu təyin etmə
+            $this->assignSchoolAdminRole($admin);
 
             DB::commit();
 
+            $this->logAdminCreation($admin);
+
             return response()->json([
                 'success' => true,
-                'message' => 'Məktəb administratoru yaradıldı',
-                'data' => $admin
+                'message' => 'Məktəb administratoru uğurla yaradıldı',
+                'data' => $admin->load('roles')
             ]);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('School admin creation failed', [
-                'error' => $e->getMessage()
-            ]);
+            $this->logAdminCreationFailure($e, $request);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Məktəb administratoru yaradıla bilmədi'
-            ], 500);
+        return response()->json([
+            'success' => false,
+            'message' => 'Məktəb administratoru yaradılarkən xəta baş verdi',
+            'error_details' => config('app.debug') ? $e->getMessage() : null
+        ], 500);
+    }
+    }
+
+    /**
+ * Unikallıq yoxlamaları üçün ayrıca metod
+ */
+    private function validateUniqueFields(CreateSchoolAdminRequest $request): void
+    {
+        $uniqueChecks = [
+            'utis_code' => User::where('utis_code', $request->utis_code)->first(),
+            'email' => User::where('email', $request->email)->first(),
+            'username' => User::where('username', $request->username)->first()
+        ];
+
+        $errorMessages = [
+            'utis_code' => 'Bu UTİS kodu artıq istifadə olunub',
+            'email' => 'Bu email artıq qeydiyyatdan keçib',
+            'username' => 'Bu istifadəçi adı artıq mövcuddur'
+        ];
+
+        foreach ($uniqueChecks as $field => $existingUser) {
+            if ($existingUser) {
+                throw new \Exception($errorMessages[$field]);
+            }
         }
     }
 
     /**
-     * Assign admin to school
-     *
-     * @param AssignAdminRequest $request
-     * @param School $school
-     * @return JsonResponse
-     */
-    public function assignAdmin(AssignAdminRequest $request, School $school): JsonResponse
+ * Admin rolunu təyin etmə
+ */
+    private function assignSchoolAdminRole(User $admin): void
     {
-        try {
-            $admin = $this->adminService->assignToSchool($school, $request->admin_id);
-            Cache::tags(['schools', 'admins'])->flush();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Admin uğurla təyin edildi',
-                'data' => $admin
-            ]);
-
-        } catch (AdminAssignmentException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 422);
+        $schoolAdminRole = Role::where('name', 'school-admin')->first();
+        if ($schoolAdminRole) {
+            $admin->roles()->attach($schoolAdminRole);
         }
+    }
+
+    /**
+ * Admin yaradılmasını loqlama
+ */
+    private function logAdminCreation(User $admin): void
+    {
+        Log::info('School admin created', [
+            'admin_id' => $admin->id,
+            'email' => $admin->email,
+            'username' => $admin->username
+        ]);
+    }
+
+    /**
+ * Admin yaradılması xətasını loqlama
+ */
+    private function logAdminCreationFailure(\Exception $e, CreateSchoolAdminRequest $request): void
+    {
+        Log::error('School admin creation failed', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'request_data' => $request->except('password')
+        ]);
     }
 
     /**
@@ -518,4 +565,8 @@ class SchoolManagementController extends Controller
             ], 500);
         }
     }
+
+
+
+
 }

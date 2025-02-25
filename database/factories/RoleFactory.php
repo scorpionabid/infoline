@@ -16,7 +16,7 @@ class RoleFactory extends Factory
        
        return [
            'name' => $name,
-           'slug' => Str::slug($name),
+           'guard_name' => 'web',
            'description' => $this->faker->sentence(),
            'is_system' => false // default olaraq system rolu deyil
        ];
@@ -34,8 +34,8 @@ class RoleFactory extends Factory
    public function superAdmin(): static
    {
        return $this->state(fn (array $attributes) => [
-           'name' => 'Super Admin',
-           'slug' => 'super-admin',
+           'name' => 'super',
+           'guard_name' => 'web',
            'description' => 'Tam səlahiyyətli admin',
            'is_system' => true
        ]);

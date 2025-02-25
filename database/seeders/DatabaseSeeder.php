@@ -12,9 +12,10 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            UserSeeder::class,
             RoleSeeder::class,
             PermissionSeeder::class,
+            SuperAdminRoleSeeder::class, // Superadmin rolə icazələri təyin edirik
+            UserSeeder::class,
             SectorPermissionSeeder::class,
             CategorySeeder::class,
         ]);

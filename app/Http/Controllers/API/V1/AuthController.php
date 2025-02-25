@@ -358,7 +358,7 @@ class AuthController extends Controller
         $roleName = $defaultRoles[$user->user_type] ?? null;
 
         if ($roleName) {
-            $role = Role::where('slug', $roleName)->first();
+            $role = Role::where('name', $roleName)->first();
             if ($role) {
                 $user->roles()->attach($role);
             }

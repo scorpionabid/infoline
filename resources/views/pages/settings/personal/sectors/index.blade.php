@@ -7,18 +7,14 @@
     @if(session('success'))
         <div class="alert alert-success alert-dismissible fade show" role="alert">
             {{ session('success') }}
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     @endif
 
     @if(session('error'))
         <div class="alert alert-danger alert-dismissible fade show" role="alert">
             {{ session('error') }}
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
     @endif
 
@@ -42,6 +38,7 @@
                                 <tr>
                                     <th>Sektor</th>
                                     <th>Admin</th>
+                                    <th>Sektor İstifadəçisi</th>
                                     <th>Məktəb</th>
                                     <th>Əməliyyatlar</th>
                                 </tr>
@@ -50,29 +47,60 @@
                                 @forelse($region->sectors as $sector)
                                     <tr>
                                         <td>{{ $sector->name }}</td>
-                                        <td>
+                                        <td id="admin-cell-{{ $sector->id }}">
                                             @if($sector->admin)
-                                                {{ $sector->admin->full_name }}
+                                                <div class="d-flex align-items-center justify-content-between admin-info">
+                                                    <div>
+                                                        <span class="admin-name">{{ $sector->admin->first_name }} {{ $sector->admin->last_name }}</span>
+                                                        <small class="text-muted d-block">{{ $sector->admin->email }}</small>
+                                                    </div>
+                                                    <div class="admin-actions">
+                                                        <form action="{{ route('settings.personal.sectors.admin.remove', $sector) }}" 
+                                                              method="POST" 
+                                                              class="d-inline ms-2"
+                                                              onsubmit="return confirm('Admini silmək istədiyinizə əminsiniz?')">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="btn btn-sm btn-danger" title="Admini sil">
+                                                                <i class="fas fa-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </div>
                                             @else
-                                                <span class="text-muted">Təyin edilməyib</span>
+                                                <div class="d-flex gap-2 justify-content-start">
+                                                    <!-- YENİ: Modal əvəzinə birbaşa link -->
+                                                    <a href="{{ route('settings.personal.sectors.admin.create', $sector) }}" 
+                                                       class="btn btn-sm btn-success">
+                                                        <i class="fas fa-user-plus"></i> Yeni Admin Təyin Et
+                                                    </a>
+                                                </div>
+                                            @endif
+                                        </td>
+                                        <td id="user-cell-{{ $sector->id }}">
+                                            @if($sector->admin)
+                                                <div class="user-info">
+                                                    <span class="user-name">{{ $sector->admin->first_name }} {{ $sector->admin->last_name }}</span>
+                                                    <small class="text-muted d-block">{{ $sector->admin->email }}</small>
+                                                </div>
+                                            @else
+                                                <span class="text-muted">-</span>
                                             @endif
                                         </td>
                                         <td>{{ $sector->schools_count }}</td>
                                         <td>
                                             <div class="btn-group">
-                                                <form action="{{ route('settings.personal.sectors.edit', $sector->id) }}" 
-                                                      method="GET" 
-                                                      class="d-inline">
-                                                    <button type="submit" class="btn btn-sm btn-primary" title="Redaktə et">
-                                                        <i class="fas fa-edit"></i>
-                                                    </button>
-                                                </form>
+                                                <a href="{{ route('settings.personal.sectors.edit', $sector) }}" 
+                                                   class="btn btn-sm btn-primary" 
+                                                   title="Redaktə et">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
                                                 
                                                 @if($sector->schools_count == 0)
-                                                    <form action="{{ route('settings.personal.sectors.destroy', $sector->id) }}" 
+                                                    <form action="{{ route('settings.personal.sectors.destroy', $sector) }}" 
                                                           method="POST" 
                                                           class="d-inline"
-                                                          onsubmit="return confirm('Bu sektoru birdəfəlik silmək istədiyinizdən əminsiniz? Bu əməliyyat geri qaytarila bilməz!')">
+                                                          onsubmit="return confirm('Bu sektoru birdəfəlik silmək istədiyinizdən əminsiniz?')">
                                                         @csrf
                                                         @method('DELETE')
                                                         <button type="submit" class="btn btn-sm btn-danger" title="Sil">
@@ -85,7 +113,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="4" class="text-center">Bu regionda sektor yoxdur</td>
+                                        <td colspan="5" class="text-center">Bu regionda sektor yoxdur</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -97,6 +125,4 @@
         @endforeach
     </div>
 </div>
-
-
 @endsection

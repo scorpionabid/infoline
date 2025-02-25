@@ -14,7 +14,7 @@
            </a>
            
            <!-- Settings Dropdown -->
-           @if(auth()->user()->isSuperAdmin())
+           @if(auth()->user()->hasRole('super'))
            <div class="nav-item dropdown">
                <a class="nav-link dropdown-toggle {{ request()->routeIs('settings.*') ? 'active' : '' }}" 
                   href="#" role="button" data-bs-toggle="dropdown">
@@ -41,15 +41,15 @@
        <!-- Center - User Context -->
        <div class="navbar-text text-center mx-auto">
            @switch(true)
-               @case(auth()->user()->isSuperAdmin())
+               @case(auth()->user()->hasRole('super'))
                    <i class="fas fa-globe"></i> 
                    {{ auth()->user()->region->name ?? 'Bütün regionlar' }}
                    @break
-               @case(auth()->user()->isSectorAdmin())  
+               @case(auth()->user()->hasRole('sector'))  
                    <i class="fas fa-building"></i>
                    {{ auth()->user()->sector->name ?? 'Sektor' }}
                    @break
-               @case(auth()->user()->isSchoolAdmin())
+               @case(auth()->user()->hasRole('school'))
                    <i class="fas fa-school"></i>
                    {{ auth()->user()->school->name ?? 'Məktəb' }}
                    @break

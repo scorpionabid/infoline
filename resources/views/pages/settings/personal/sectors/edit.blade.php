@@ -88,7 +88,7 @@
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title mb-3">Sektor Admini Təyin Et</h5>
-                    <form action="{{ route('settings.personal.sectors.assign-admin', $sector->id) }}" method="POST">
+                    <form action="{{ route('settings.personal.sectors.admin.store', $sector) }}" method="POST">
                         @csrf
                         <div class="row">
                             <div class="col-md-6">

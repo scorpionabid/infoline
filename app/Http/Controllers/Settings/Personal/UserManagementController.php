@@ -17,6 +17,11 @@ use Illuminate\Support\Facades\DB;
 
 class UserManagementController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware(['role:super']);
+    }
+
     /**
      * İstifadəçilərin siyahısı
      */
@@ -173,7 +178,7 @@ class UserManagementController extends Controller
     public function updateStatus(Request $request, User $user)
     {
         if ($user->isSuperAdmin()) {
-            return back()->with('error', 'SuperAdmin statusu dəyişdirilə bilməz');
+            return back()->with('error', 'Super admin statusu dəyişdirilə bilməz');
         }
 
         $user->update([
@@ -189,7 +194,7 @@ class UserManagementController extends Controller
     public function updateRoles(Request $request, User $user)
     {
         if ($user->isSuperAdmin()) {
-            return back()->with('error', 'SuperAdmin rolları dəyişdirilə bilməz');
+            return back()->with('error', 'Super admin rolları dəyişdirilə bilməz');
         }
 
         $user->roles()->sync($request->roles);

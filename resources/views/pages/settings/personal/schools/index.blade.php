@@ -3,6 +3,8 @@
 @section('title', 'Məktəblər')
 
 @section('content')
+@include('pages.settings.personal.schools.admin_modal')
+@include('pages.settings.personal.schools.edit-admin-modal')
 <div class="content-wrapper">
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
@@ -74,7 +76,7 @@
                         </thead>
                         <tbody>
                             @forelse($schools as $school)
-                                <tr>
+                                <tr data-school-id="{{ $school->id }}">
                                     <td class="text-center">
                                         <div class="form-check">
                                             <input type="checkbox" class="form-check-input school-checkbox" value="{{ $school->id }}">
@@ -85,7 +87,30 @@
                                     <td>{{ $school->sector->region->name ?? '-' }}</td>
                                     <td>{{ $school->sector->name ?? '-' }}</td>
                                     <td>{{ $school->phone ?? '-' }}</td>
-                                    <td>{{ $school->admin?->full_name ?? '-' }}</td>
+                                    <td class="admin-cell">
+                                        @if($school->admin)
+                                            <div class="d-flex align-items-center justify-content-between">
+                                                <span>{{ $school->admin->full_name }}</span>
+                                                <div class="btn-group ms-2">
+                                                    <button class="btn btn-sm btn-warning" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#editAdminModal"
+                                                        data-admin-id="{{ $school->admin->id }}"
+                                                        data-school-id="{{ $school->id }}"
+                                                        title="Admini redaktə et">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-danger remove-admin-btn" 
+                                                        data-school-id="{{ $school->id }}"
+                                                        title="Admini sil">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        @else
+                                            <span class="text-muted">-</span>
+                                        @endif
+                                    </td>
                                     <td class="text-center">
                                         <span class="badge bg-info">{{ $school->admins->count() }}</span>
                                     </td>
@@ -113,7 +138,7 @@
                 </div>
 
                 <div class="d-flex justify-content-end mt-3">
-                    {{ $schools->links() }}
+                    {!! $schools->links() !!}
                 </div>
             </div>
         </div>
@@ -179,20 +204,21 @@
     </div>
 </div>
 
-<!-- Assign Admin Modal -->
-<div class="modal fade" id="assignAdminModal" tabindex="-1" aria-labelledby="assignAdminModalLabel" aria-hidden="true">
+<!-- Admin Modal -->
+<div class="modal fade" id="adminModal" tabindex="-1" aria-labelledby="adminModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="assignAdminModalLabel">Admin təyin et</h5>
+                <h5 class="modal-title" id="adminModalLabel">Admin təyin et</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="assignAdminForm" method="POST">
+                <form id="adminForm" method="POST">
                     @csrf
+                    <input type="hidden" name="school_id">
                     <div class="mb-3">
-                        <label for="admin_id" class="form-label">Admin seçin <span class="text-danger">*</span></label>
-                        <select class="form-select" id="admin_id" name="admin_id" required>
+                        <label for="adminSelect" class="form-label">Admin seçin <span class="text-danger">*</span></label>
+                        <select class="form-select" id="adminSelect" name="user_id" required>
                             <option value="">Seçin</option>
                         </select>
                     </div>
@@ -200,7 +226,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Bağla</button>
-                <button type="submit" class="btn btn-primary" form="assignAdminForm">Təyin et</button>
+                <button type="submit" class="btn btn-primary" form="adminForm">Təyin et</button>
             </div>
         </div>
     </div>
@@ -222,5 +248,85 @@
 <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script src="{{ asset('js/settings/school.js') }}"></script>
+<script src="{{ asset('js/settings/school/school-management.js') }}"></script>
+<script>
+    $(document).ready(function() {
+        // Initialize school manager
+        window.schoolManager = SchoolManager.init();
+
+        // Initialize select2 for admin select
+        $('#adminSelect').select2({
+            dropdownParent: $('#adminModal'),
+            ajax: {
+                url: '/api/users/available-admins',
+                dataType: 'json',
+                delay: 250,
+                data: function(params) {
+                    return {
+                        search: params.term,
+                        page: params.page || 1
+                    };
+                },
+                processResults: function(data) {
+                    return {
+                        results: data.results.map(function(user) {
+                            return {
+                                id: user.id,
+                                text: user.text
+                            };
+                        })
+                    };
+                },
+                cache: true
+            },
+            minimumInputLength: 2,
+            placeholder: 'Admin axtar...'
+        });
+
+        // Handle assign admin button click
+        $('.assign-admin-btn').on('click', function() {
+            const schoolId = $(this).data('school-id');
+            SchoolManager.openAdminModal(schoolId);
+        });
+
+        // Handle admin form submission
+        $('#adminForm').on('submit', function(e) {
+            e.preventDefault();
+            const schoolId = $(this).find('[name="school_id"]').val();
+            const userId = $('#adminSelect').val();
+
+            if (!userId) {
+                toastr.error('Zəhmət olmasa admin seçin');
+                return;
+            }
+
+            $.ajax({
+                url: `/settings/personal/schools/${schoolId}/admin/assign`,
+                method: 'POST',
+                data: {
+                    user_id: userId,
+                    _token: $('meta[name="csrf-token"]').attr('content')
+                },
+                success: function(response) {
+                    if (response.success) {
+                        toastr.success(response.message || 'Admin uğurla təyin edildi');
+                        $('#adminModal').modal('hide');
+                        window.location.reload();
+                    } else {
+                        toastr.error(response.message || 'Xəta baş verdi');
+                    }
+                },
+                error: function(xhr) {
+                    toastr.error(xhr.responseJSON?.message || 'Xəta baş verdi');
+                }
+            });
+        });
+
+        // Handle remove admin button click
+        $('.remove-admin-btn').on('click', function() {
+            const schoolId = $(this).data('school-id');
+            SchoolManager.removeAdmin(schoolId);
+        });
+    });
+</script>
 @endpush

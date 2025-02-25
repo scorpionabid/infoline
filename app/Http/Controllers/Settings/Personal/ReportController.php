@@ -11,6 +11,11 @@ use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware(['role:super']);
+    }
+
     /**
      * Məktəblər üzrə hesabat
      */
