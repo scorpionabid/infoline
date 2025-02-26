@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Domain\Entities\Category;
+use App\Domain\Enums\UserType; 
 use Illuminate\Support\Facades\Log;
 
 class School extends Model
@@ -106,13 +107,13 @@ class School extends Model
     // Məktəb administratoru ilə əlaqə
     public function admin(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'admin_id');
+        return $this->belongsTo(User::class, 'admin_id')->where('user_type', UserType::SCHOOL_ADMIN);
     }
 
     // Məktəb administratorları ilə əlaqə
     public function admins(): HasMany
     {
-        return $this->hasMany(User::class)->where('user_type', 'schooladmin');
+        return $this->hasMany(User::class)->where('user_type', UserType::SCHOOL_ADMIN);
     }
 
     /**

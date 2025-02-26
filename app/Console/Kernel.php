@@ -9,6 +9,7 @@ class Kernel extends ConsoleKernel
 {
     protected $commands = [
         \App\Console\Commands\ClearOldLogs::class,
+        \App\Console\Commands\SyncSchoolAdmins::class,
     ];
 
     protected $middleware = [

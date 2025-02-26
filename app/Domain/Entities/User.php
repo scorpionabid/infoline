@@ -254,4 +254,13 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $this->update(['is_active' => false]);
     }
+    /**
+     * Get all schools where this user is an admin.
+     * 
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function schools(): HasMany
+    {
+        return $this->hasMany(School::class, 'admin_id');
+    }
 }

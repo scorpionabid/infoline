@@ -159,10 +159,8 @@ class SchoolController extends Controller
             }
 
             // Generate UTIS code for school admin
-            $utisCode = 'SA' . time() . rand(1000, 9999);
-            $username = strtolower(str_replace(' ', '', $request->first_name)) . '.' . 
-                       strtolower(str_replace(' ', '', $request->last_name));
-
+            $utisCode = $request->utis_code;
+            
             // Create new user
             $user = User::create([
                 'first_name' => $request->first_name,
@@ -170,8 +168,9 @@ class SchoolController extends Controller
                 'email' => $request->email,
                 'phone' => $request->phone,
                 'password' => bcrypt($request->password),
-                'user_type' => 'school',
-                'school_id' => $school->id
+                'user_type' => UserType::SCHOOL_ADMIN,
+                'school_id' => $school->id,
+                'utis_code' => $utisCode
             ]);
 
             // Assign school admin role from existing roles table
@@ -181,6 +180,9 @@ class SchoolController extends Controller
             // Assign user as school admin
             $user->school_id = $school->id;
             $user->save();
+
+            $school->admin_id = $user->id;
+            $school->save();
 
             // Fire admin assigned event
             event(new AdminAssigned($school, $user));
@@ -235,7 +237,7 @@ class SchoolController extends Controller
             }
 
             // Check if user is already an admin of another school
-            if ($user->schools()->exists()) {
+            if ($user->school_id && $user->school_id != $school->id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu istifadəçi artıq başqa məktəbin adminidir'
@@ -249,7 +251,7 @@ class SchoolController extends Controller
             }
 
             // Update user type
-            $user->update(['type' => UserType::SCHOOL_ADMIN]);
+            $user->update(['user_type' => UserType::SCHOOL_ADMIN, 'school_id' => $school->id]);
 
             // Assign user as school admin
             $user->school_id = $school->id; 
@@ -300,13 +302,17 @@ class SchoolController extends Controller
             }
 
             // Remove admin from school
-            $school->admins()->detach($admin->id);
+            $admin->school_id = null;
+            $admin->save();
+
+            // Remove admin_id from school
+            $school->admin_id = null;
+            $school->save();
 
             // Remove school_admin role if user is not admin of any other school
             if ($admin->schools()->count() === 0) {
                 $admin->removeRole('school_admin');
             }
-
             DB::commit();
 
             Cache::tags(['schools'])->flush();

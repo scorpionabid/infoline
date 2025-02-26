@@ -256,11 +256,13 @@ class SchoolManagementController extends Controller
         try {
             DB::beginTransaction();
 
-            // Default UTİS kodu təyin et
-            $utisCode = $request->utis_code ?? '0000000';
-
             // Unikallıq yoxlamaları
             $this->validateUniqueFields($request);
+
+            // UTİS kodu boşdursa xəta qaytar
+            if (empty($request->utis_code)) {
+                throw new \Exception('UTİS kodu tələb olunur');
+            }
 
             $admin = User::create([
                 'first_name' => $request->first_name,
@@ -268,7 +270,7 @@ class SchoolManagementController extends Controller
                 'email' => $request->email,
                 'username' => $request->username,
                 'password' => Hash::make($request->password),
-                'utis_code' => $utisCode,
+                'utis_code' => $request->utis_code,
                 'phone' => $request->phone,
                 'user_type' => UserType::SCHOOL_ADMIN,
                 'is_active' => true,

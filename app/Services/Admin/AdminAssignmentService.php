@@ -25,20 +25,23 @@ class AdminAssignmentService
 
             $admin = User::findOrFail($adminId);
 
-            if ($admin->type !== UserType::SchoolAdmin) {
+            if ($admin->user_type !== UserType::SCHOOL_ADMIN) {
                 throw new AdminAssignmentException('İstifadəçi məktəb admini deyil');
             }
 
-            if ($admin->schools()->where('id', '!=', $school->id)->exists()) {
+            if ($admin->school_id && $admin->school_id != $school->id) {
                 throw new AdminAssignmentException('Bu admin artıq başqa məktəbə təyin edilib');
             }
 
-            if ($school->admin_id === $admin->id) {
-                throw new AdminAssignmentException('Bu admin artıq bu məktəbə təyin edilib');
+            if ($school->admin_id && $school->admin_id != $admin->id) {
+                throw new AdminAssignmentException('Bu məktəbin artıq admini var');
             }
 
+            $admin->school_id = $school->id;
+            $admin->save();
+
             $oldAdminId = $school->admin_id;
-            $school->admin()->associate($admin);
+            $school->admin_id = $admin->id;
             $school->save();
 
             // Fire event
