@@ -17,6 +17,7 @@ use App\Domain\Entities\{
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\SchoolDataExport;
+use App\Services\Dashboard\StatisticsService;
 
 class DashboardController extends Controller
 {
@@ -31,9 +32,11 @@ class DashboardController extends Controller
             return redirect()->route('dashboard.super-admin');
         } elseif ($user->hasRole('sector')) {
             return redirect()->route('dashboard.sector-admin');
-        } else {
+        } elseif ($user->hasRole('school')) {
             return redirect()->route('dashboard.school-admin');
         }
+
+        return redirect()->route('login');
     }
 
     /**
@@ -52,35 +55,21 @@ class DashboardController extends Controller
     }
 
     /**
-     * Sektor admin dashboard-u
+     * Sector Admin dashboard
      */
     public function sectorAdmin()
     {
         $user = Auth::user();
-    
-        if (!$user->hasRole('sector')) {
-            return redirect()->route('dashboard');
-        }
+        $sector = $user->sector;
 
-        // Get user's sector and region
-        $sector = $user->sector()->with(['schools.admins', 'region'])->first();
-        $region = $user->region;
-
-        if (!$sector || !$region) {
-            return redirect()->route('dashboard')
-                ->with('error', 'Sektor və ya region təyin edilməyib.');
-        }
-
-        // Statistika məlumatları
         $data = [
+            'sector' => $sector,
+            'schoolCount' => School::where('sector_id', $sector->id)->count(),
             'regionCount' => Region::count(),
             'sectorCount' => Sector::count(), 
-            'schoolCount' => School::count(),
             'userCount' => User::count(),
             'sectors' => Sector::all(),
-            'categories' => Category::all(),
-            'sector' => $sector,
-            'region' => $region
+            'categories' => Category::all()
         ];
 
         // Məlumatları filtrlə
@@ -110,14 +99,17 @@ class DashboardController extends Controller
 
         $data['schoolData'] = $query->paginate(15);
 
-        return view('pages.dashboard.sector-admin', $data);
+        return view('pages.dashboard.sector-admin.index', $data);
     }
 
     /**
-     * SchoolAdmin dashboard
+     * School Admin dashboard
      */
     public function schoolAdmin()
     {
+        $user = Auth::user();
+        $school = $user->school;
+
         // Aktiv kateqoriyalar və sütunları əldə edirik
         $categories = Category::with(['columns' => function($query) {
             $query->whereNull('end_date')
@@ -125,12 +117,62 @@ class DashboardController extends Controller
         }])->get();
 
         // Məktəbin məlumatlarını əldə edirik
-        $schoolId = Auth::user()->school_id;
+        $schoolId = $user->school_id;
         $dataValues = DataValue::where('school_id', $schoolId)->get();
 
-        return view('pages.dashboard.school-admin', [
+        // Sütunların tam siyahısı
+        $allColumns = $categories->flatMap(function($category) {
+            return $category->columns;
+        });
+
+        // Toplam sütunlar
+        $totalColumns = $allColumns->count();
+
+        // Boş sütunların hesablanması
+        $emptyColumns = $allColumns->filter(function($column) use ($dataValues) {
+            return $dataValues->where('column_id', $column->id)->isEmpty();
+        })->count();
+
+        // Məcburi sütunlar
+        $requiredColumns = $allColumns->filter(function($column) {
+            return $column->is_required;
+        });
+
+        $filledRequiredColumns = $requiredColumns->filter(function($column) use ($dataValues) {
+            return $dataValues->where('column_id', $column->id)->isNotEmpty();
+        })->count();
+
+        $totalRequiredColumns = $requiredColumns->count();
+
+        // Tamamlanma faizi
+        $completionRate = $totalColumns > 0 
+            ? round(($totalColumns - $emptyColumns) / $totalColumns * 100, 2) 
+            : 0;
+
+        // Növbəti 30 gün ərzində olan vaxtın ələ indi ərzində olunan vaxtlar
+        $upcomingDeadlines = Deadline::where('school_id', $schoolId)
+            ->where('end_date', '>', now())
+            ->where('end_date', '<=', now()->addDays(30)) // Növbəti 30 gün ərzində
+            ->orderBy('end_date', 'asc')
+            ->get();
+
+        $statistics = [
+            'completion_rate' => $completionRate,
+            'empty_columns' => $emptyColumns,
+            'total_columns' => $totalColumns,
+            'required_columns' => $totalRequiredColumns,
+            'filled_required_columns' => $filledRequiredColumns,
+            'upcoming_deadlines' => $upcomingDeadlines
+        ];
+
+        $data = [
+            'school' => $school,
             'categories' => $categories,
-            'dataValues' => $dataValues
-        ]);
+            'dataValues' => $dataValues,
+            'statistics' => $statistics,
+            'upcomingDeadlines' => $upcomingDeadlines
+        ];
+
+        return view('pages.dashboard.school-admin.index', $data);
     }
 }

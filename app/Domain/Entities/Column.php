@@ -90,6 +90,20 @@ class Column extends Model
     }
 
     /**
+     * Sütunun son tarixinin keçib-keçmədiyini yoxlayır
+     * 
+     * @return bool
+     */
+    public function isExpired(): bool
+    {
+        if (!$this->end_date) {
+            return false;
+        }
+        
+        return $this->end_date < Carbon::now();
+    }
+
+    /**
      * Check if the column has reached its input limit.
      */
     public function hasReachedInputLimit(): bool
@@ -138,5 +152,15 @@ class Column extends Model
             default:
                 return (string) $value;
         }
+    }
+
+    public function dataValues()
+    {
+        return $this->hasMany(DataValue::class);
+    }
+
+    public function choices()
+    {
+        return $this->hasMany(ColumnChoice::class);
     }
 }

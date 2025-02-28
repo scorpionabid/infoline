@@ -11,6 +11,9 @@ class DataValue extends Model
 {
     use SoftDeletes, HasFactory;
 
+    protected $table = 'data_values';
+    protected $dates = ['deleted_at'];
+
     protected $fillable = [
         'column_id',
         'school_id',

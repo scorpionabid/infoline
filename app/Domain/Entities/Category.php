@@ -89,8 +89,43 @@ class Category extends Model
     /**
      * Get active columns for the category.
      */
-    public function getActiveColumns(): HasMany
+    public function activeColumns(): HasMany
     {
-        return $this->columns()->where('is_active', true)->orderBy('order');
+        return $this->columns()->where('is_active', true);
+    }
+
+    /**
+     * Get the assignments for the category.
+     */
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(CategoryAssignment::class);
+    }
+
+    public function isAssignedToAll(): bool
+    {
+        return $this->assignments()->where('assigned_type', 'all')->exists();
+    }
+
+    public function isAssignedToSector($sectorId): bool
+    {
+        return $this->isAssignedToAll() || 
+            $this->assignments()
+                ->where('assigned_type', 'sector')
+                ->where('assigned_id', $sectorId)
+                ->exists();
+    }
+
+    public function isAssignedToSchool($schoolId): bool
+    {
+        return $this->isAssignedToAll() || 
+            $this->assignments()
+                ->where('assigned_type', 'school')
+                ->where('assigned_id', $schoolId)
+                ->exists();
+    }
+    public function deadlines()
+    {
+        return $this->hasMany(Deadline::class);
     }
 }

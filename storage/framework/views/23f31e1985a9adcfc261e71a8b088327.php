@@ -2,11 +2,11 @@
 <div class="modal fade" id="columnModal" tabindex="-1" aria-labelledby="columnModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <form id="columnForm" action="{{ route('settings.table.columns.store') }}" method="POST">
-                @csrf
+            <form id="columnForm" action="<?php echo e(route('settings.table.columns.store')); ?>" method="POST">
+                <?php echo csrf_field(); ?>
                 <input type="hidden" name="_method" id="columnMethod" value="POST">
                 <input type="hidden" name="id" id="columnId">
-                <input type="hidden" name="category_id" id="columnCategoryId" value="{{ $selectedCategory->id ?? '' }}">
+                <input type="hidden" name="category_id" id="columnCategoryId" value="<?php echo e($selectedCategory->id ?? ''); ?>">
                 
                 <div class="modal-header">
                     <h5 class="modal-title" id="columnModalTitle">Yeni Sütun</h5>
@@ -149,3 +149,4 @@
         </div>
     </div>
 </div>
+<?php /**PATH /Users/home/Library/CloudStorage/OneDrive-BureauonICTforEducation,MinistryofEducation/infoline_app/resources/views/partials/settings/table/modals/column.blade.php ENDPATH**/ ?>

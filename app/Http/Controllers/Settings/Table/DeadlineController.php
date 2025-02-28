@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Settings\Table;
 
 use App\Http\Controllers\Controller;
-use App\Models\Category;
-use App\Models\Deadline;
+use App\Domain\Entities\Category;
+use App\Domain\Entities\Deadline;
 use Illuminate\Http\Request;
 
 class DeadlineController extends Controller

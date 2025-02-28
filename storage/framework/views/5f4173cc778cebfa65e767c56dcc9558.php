@@ -53,13 +53,16 @@
     </div>
 
     <!-- Vendor Scripts -->
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
 
     <!-- CSRF Token for AJAX -->
     <script>
@@ -76,7 +79,15 @@
             positionClass: "toast-top-right",
             timeOut: 5000
         };
+        document.addEventListener('DOMContentLoaded', function() {
+        // Mövcud modalları yükləyək
+        var modalEls = document.querySelectorAll('.modal');
+        modalEls.forEach(function(modalEl) {
+            new bootstrap.Modal(modalEl);
+        });
+    });
     </script>
+   
 
     <?php echo $__env->yieldContent('scripts'); ?>
 </body>

@@ -3,14 +3,14 @@
 namespace App\Http\Controllers\Settings\Table;
 
 use App\Domain\Entities\Category;
+use App\Domain\Entities\CategoryAssignment;
 use App\Domain\Entities\Column;
-use App\Domain\Entities\DataValue;
 use App\Domain\Entities\School;
+use App\Domain\Entities\Sector;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
 
 class TableSettingsController extends Controller
 {
@@ -22,6 +22,9 @@ class TableSettingsController extends Controller
         $categories = Category::with(['columns' => function($query) {
             $query->orderBy('order');
         }])->get();
+
+        $sectors = Sector::all();
+        $schools = School::all();
 
         $selectedCategory = null;
         $columns = collect();
@@ -36,272 +39,99 @@ class TableSettingsController extends Controller
             }
         }
 
-        return view('pages.settings.table.index', compact('categories', 'selectedCategory', 'columns'));
+        return view('pages.settings.table.table', compact('categories', 'selectedCategory', 'columns', 'sectors', 'schools'));
     }
-
-    /**
-     * Bütün kateqoriyaları qaytarır
-     */
-    public function categories()
+    public function getAllCategories()
     {
         $categories = Category::with('columns')->get();
         return response()->json($categories);
     }
 
-    /**
-     * Yeni kateqoriya əlavə edir
-     */
+    public function showCategory($id)
+    {
+        try {
+        $category = Category::with('columns')->findOrFail($id);
+        
+        return response()->json([
+            'success' => true,
+            'category' => $category
+        ]);
+        } catch (\Exception $e) {
+            Log::error('Error showing category:', [
+                'id' => $id,
+                'error' => $e->getMessage()
+            ]);
+        
+            return response()->json([
+                'success' => false,
+                'message' => 'Kateqoriya tapılmadı'
+            ], 404);
+        }
+    }
     public function storeCategory(Request $request)
     {
         $validated = $request->validate([
             'name' => 'required|string|min:2|max:255',
-            'description' => 'nullable|string|max:1000'
+            'description' => 'nullable|string|max:1000',
+            'assigned_type' => 'required|in:all,sector,school',
+            'assigned_ids' => 'required_unless:assigned_type,all|array'
         ]);
 
         try {
-            DB::beginTransaction();
+        DB::beginTransaction();
 
-            $category = Category::create($validated);
+        // Kateqoriyanı yarat
+        $category = Category::create([
+            'name' => $validated['name'],
+            'description' => $validated['description'],
+            'is_active' => true
+        ]);
+        
+        // Əlaqələndirmələri əlavə et
+        $this->syncCategoryAssignments($category, $validated['assigned_type'], $validated['assigned_ids'] ?? []);
 
-            DB::commit();
+        DB::commit();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Kateqoriya uğurla əlavə edildi',
-                'category' => $category
+        return response()->json([
+            'success' => true,
+            'message' => 'Kateqoriya uğurla əlavə edildi',
+            'category' => $category
+        ]);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error creating category:', [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        return response()->json([
+            'success' => false,
+            'message' => 'Kateqoriya əlavə edilərkən xəta baş verdi',
+            'errors' => [$e->getMessage()]
+        ], 500);
+    }
+}
+
+// Yeni yardımçı metod
+private function syncCategoryAssignments($category, $assignedType, $assignedIds = [])
+{
+    // Köhnə əlaqələri sil
+    $category->assignments()->delete();
+    
+    // Yeni əlaqələri əlavə et
+    if ($assignedType === 'all') {
+        CategoryAssignment::create([
+            'category_id' => $category->id,
+            'assigned_type' => 'all',
+            'assigned_id' => null
+        ]);
+    } else {
+        foreach ($assignedIds as $id) {
+            CategoryAssignment::create([
+                'category_id' => $category->id,
+                'assigned_type' => $assignedType,
+                'assigned_id' => $id
             ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Kateqoriya əlavə edilərkən xəta baş verdi',
-                'errors' => [$e->getMessage()]
-            ], 500);
         }
     }
-
-    /**
-     * Kateqoriyanı silir
-     */
-    public function destroyCategory($id)
-    {
-        try {
-            DB::beginTransaction();
-
-            $category = Category::findOrFail($id);
-
-            // Kateqoriyaya aid bütün sütunları sil
-            $category->columns()->delete();
-            
-            // Kateqoriyanı sil
-            $category->delete();
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Kateqoriya uğurla silindi'
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Kateqoriya silinərkən xəta baş verdi',
-                'errors' => [$e->getMessage()]
-            ], 500);
-        }
-    }
-
-    /**
-     * Yeni sütun əlavə edir
-     */
-    public function storeColumn(Request $request)
-    {
-        try {
-            Log::info('Column store request:', $request->all());
-
-            // Əsas validasiya
-            $validated = $request->validate([
-                'category_id' => 'required|exists:categories,id',
-                'name' => 'required|string|min:2|max:255',
-                'data_type' => 'required|string|in:text,number,date,select,file',
-                'description' => 'nullable|string|max:1000',
-                'is_required' => 'boolean',
-                'input_limit' => 'nullable|integer|min:0',
-                'end_date' => 'nullable|date'
-            ]);
-
-            // Seçim tipi üçün əlavə validasiya
-            if ($request->input('data_type') === 'select') {
-                $request->validate([
-                    'options' => 'required|array|min:1',
-                    'options.*' => 'required|string|max:255'
-                ]);
-                $validated['options'] = $request->input('options');
-            }
-
-            DB::beginTransaction();
-
-            $category = Category::findOrFail($validated['category_id']);
-            Log::info('Found category:', ['id' => $category->id, 'name' => $category->name]);
-
-            // Sütunun sırasını təyin et
-            $lastOrder = $category->columns()->max('order') ?? 0;
-            $validated['order'] = $lastOrder + 1;
-
-            // Boolean dəyərləri düzəlt
-            $validated['is_required'] = $request->boolean('is_required');
-
-            // category_id-ni sil, çünki create metodunda lazım deyil
-            unset($validated['category_id']);
-
-            Log::info('Creating column with data:', $validated);
-
-            // Sütunu əlavə et
-            $column = $category->columns()->create($validated);
-
-            DB::commit();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Sütun uğurla əlavə edildi',
-                'column' => $column->load('category')
-            ]);
-
-        } catch (ValidationException $e) {
-            Log::error('Validation error:', ['errors' => $e->errors()]);
-            return response()->json([
-                'success' => false,
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error creating column:', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Sütun əlavə edilərkən xəta baş verdi',
-                'errors' => [$e->getMessage()]
-            ], 500);
-        }
-    }
-
-    /**
-     * Sütun məlumatlarını qaytarır
-     */
-    public function showColumn($id)
-    {
-        try {
-            $column = Column::findOrFail($id);
-            
-            return response()->json([
-                'success' => true,
-                'column' => $column
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error showing column:', [
-                'id' => $id,
-                'error' => $e->getMessage()
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Sütun tapılmadı'
-            ], 404);
-        }
-    }
-
-    /**
-     * Sütunu yeniləyir
-     */
-    public function updateColumn(Request $request, $id)
-    {
-        try {
-            Log::info('Column update request:', [
-                'id' => $id,
-                'data' => $request->all()
-            ]);
-
-            // Sütunu tap
-            $column = Column::findOrFail($id);
-
-            // Əsas validasiya
-            $validated = $request->validate([
-                'name' => 'required|string|min:2|max:255',
-                'data_type' => 'required|string|in:text,number,date,select,file',
-                'description' => 'nullable|string|max:1000',
-                'is_required' => 'boolean',
-                'input_limit' => 'nullable|integer|min:0',
-                'end_date' => 'nullable|date'
-            ]);
-
-            // Seçim tipi üçün əlavə validasiya
-            if ($request->input('data_type') === 'select') {
-                $request->validate([
-                    'options' => 'required|array|min:1',
-                    'options.*' => 'required|string|max:255'
-                ]);
-                $validated['options'] = $request->input('options');
-            }
-
-            // Boolean dəyərləri düzəlt
-            $validated['is_required'] = $request->boolean('is_required');
-
-            // Sütunu yenilə
-            $column->update($validated);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Sütun uğurla yeniləndi',
-                'column' => $column->fresh()
-            ]);
-
-        } catch (ValidationException $e) {
-            Log::error('Validation error:', ['errors' => $e->errors()]);
-            return response()->json([
-                'success' => false,
-                'errors' => $e->errors()
-            ], 422);
-        } catch (\Exception $e) {
-            Log::error('Error updating column:', [
-                'id' => $id,
-                'error' => $e->getMessage()
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Sütun yenilənərkən xəta baş verdi'
-            ], 500);
-        }
-    }
-
-    /**
-     * Sütunu silir
-     */
-    public function destroyColumn($id)
-    {
-        try {
-            $column = Column::findOrFail($id);
-            
-            // Sütunu sil
-            $column->delete();
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Sütun uğurla silindi'
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error deleting column:', [
-                'id' => $id,
-                'error' => $e->getMessage()
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Sütun silinərkən xəta baş verdi'
-            ], 500);
-        }
-    }
+}
 }

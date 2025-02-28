@@ -3,7 +3,7 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <form id="deadlineForm" method="POST">
-                @csrf
+                <?php echo csrf_field(); ?>
                 <input type="hidden" name="_method" value="PATCH">
                 <input type="hidden" name="column_id" id="deadlineColumnId">
                 
@@ -40,3 +40,4 @@
         }
     });
 </script>
+<?php /**PATH /Users/home/Library/CloudStorage/OneDrive-BureauonICTforEducation,MinistryofEducation/infoline_app/resources/views/partials/settings/table/modals/deadline.blade.php ENDPATH**/ ?>
